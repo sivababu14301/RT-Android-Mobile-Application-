@@ -1,0 +1,81 @@
+import 'package:flutter/material.dart';
+import '../config/app_colors.dart';
+import '../config/api_config.dart';
+
+class CategoryCard extends StatelessWidget {
+  final String title;
+  final String? emoji;
+  final IconData? icon;
+  final String? imageUrl;
+
+  const CategoryCard({
+    super.key,
+    required this.title,
+    this.emoji,
+    this.icon,
+    this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Widget iconContent;
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      final baseServerUrl = ApiConfig.baseServerUrl;
+      final fullUrl = imageUrl!.startsWith('http') 
+          ? imageUrl! 
+          : '$baseServerUrl${imageUrl!.startsWith('/') ? '' : '/'}$imageUrl';
+      
+      iconContent = ClipOval(
+        child: Image.network(
+          fullUrl,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: AppColors.gold, size: 20),
+        ),
+      );
+    } else if (emoji != null) {
+      iconContent = Text(
+        emoji!,
+        style: const TextStyle(fontSize: 28),
+      );
+    } else {
+      iconContent = Icon(
+        icon ?? Icons.category,
+        color: AppColors.gold,
+        size: 28,
+      );
+    }
+
+    return Column(
+      children: [
+        Container(
+          width: 65,
+          height: 65,
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.goldBorder.withOpacity(0.5)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.gold.withOpacity(0.05),
+                blurRadius: 10,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Center(child: iconContent),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
