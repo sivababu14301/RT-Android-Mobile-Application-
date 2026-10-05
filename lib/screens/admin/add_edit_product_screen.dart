@@ -204,7 +204,17 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         });
       }
     } catch (e) {
-      debugPrint("❌ PICK IMAGES ERROR: $e");
+      debugPrint("❌ PICK MULTI-IMAGES FAILED, RETRYING SINGLE PICKER: $e");
+      try {
+        final XFile? singleImage = await _picker.pickImage(source: ImageSource.gallery);
+        if (singleImage != null) {
+          setState(() {
+            _selectedImageFiles.add(File(singleImage.path));
+          });
+        }
+      } catch (err) {
+        debugPrint("❌ SINGLE IMAGE PICKER ERROR: $err");
+      }
     }
   }
 

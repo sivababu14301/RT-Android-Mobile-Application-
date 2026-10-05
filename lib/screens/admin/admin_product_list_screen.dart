@@ -166,15 +166,18 @@ class _AdminProductListScreenState extends State<AdminProductListScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddEditProductScreen()),
-          );
-        },
-        backgroundColor: AppColors.gold,
-        child: const Icon(Icons.add, color: Colors.black),
+      floatingActionButton: SafeArea(
+        child: FloatingActionButton(
+          heroTag: 'admin_add_product_fab',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AddEditProductScreen()),
+            );
+          },
+          backgroundColor: AppColors.gold,
+          child: const Icon(Icons.add, color: Colors.black),
+        ),
       ),
     );
   }

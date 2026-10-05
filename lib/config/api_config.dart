@@ -8,31 +8,16 @@ class ApiConfig {
   static const String port = '5000';
 
   static String get baseUrl {
-    if (kIsWeb) return 'http://localhost:$port/api/';
-    try {
-      if (Platform.isAndroid) {
-        return 'http://$emulatorIp:$port/api/';
-      }
-    } catch (_) {}
-    return 'http://localhost:$port/api/';
+      return 'https://rt-android-mobile-application.onrender.com/api/';
   }
 
   static String get baseServerUrl {
-    if (kIsWeb) return 'http://localhost:$port';
-    try {
-      if (Platform.isAndroid) {
-        return 'http://$emulatorIp:$port';
-      }
-    } catch (_) {}
-    return 'http://localhost:$port';
+    return 'https://rt-android-mobile-application.onrender.com';
   }
 
   static List<String> get candidateHosts {
-    if (kIsWeb) return ['localhost:$port'];
     return [
-      '$emulatorIp:$port',
-      '$wifiIp:$port',
-      'localhost:$port',
+      'rt-android-mobile-application.onrender.com',
     ];
   }
 
@@ -50,7 +35,7 @@ class ApiConfig {
                 try {
                   final newBase = currentBase.replaceAll(
                     RegExp(r'https?://[^/]+'),
-                    'http://$host',
+                    'https://$host',
                   );
                   debugPrint('🔄 Retrying request with candidate base URL: $newBase${opts.path}');
 

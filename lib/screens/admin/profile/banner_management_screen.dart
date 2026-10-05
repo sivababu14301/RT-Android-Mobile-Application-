@@ -103,18 +103,21 @@ class _BannerManagementScreenState extends State<BannerManagementScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddEditBannerScreen()),
-          );
-        },
-        backgroundColor: AppColors.gold,
-        icon: const Icon(Icons.add, color: Colors.black),
-        label: const Text(
-          'New Banner',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+      floatingActionButton: SafeArea(
+        child: FloatingActionButton.extended(
+          heroTag: 'admin_profile_banner_fab',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AddEditBannerScreen()),
+            );
+          },
+          backgroundColor: AppColors.gold,
+          icon: const Icon(Icons.add, color: Colors.black),
+          label: const Text(
+            'New Banner',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
         ),
       ),
     );

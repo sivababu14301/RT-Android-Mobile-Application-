@@ -117,15 +117,18 @@ class _BannerManagementScreenState extends State<BannerManagementScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddEditBannerScreen()),
-          );
-        },
-        backgroundColor: AppColors.gold,
-        child: const Icon(Icons.add, color: Colors.black),
+      floatingActionButton: SafeArea(
+        child: FloatingActionButton(
+          heroTag: 'admin_add_banner_fab',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AddEditBannerScreen()),
+            );
+          },
+          backgroundColor: AppColors.gold,
+          child: const Icon(Icons.add, color: Colors.black),
+        ),
       ),
     );
   }

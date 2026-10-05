@@ -182,11 +182,14 @@ class _FabricManagementScreenState extends State<FabricManagementScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddEditDialog(),
-        backgroundColor: AppColors.gold,
-        icon: const Icon(Icons.add, color: Colors.black),
-        label: const Text('ADD FABRIC', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+      floatingActionButton: SafeArea(
+        child: FloatingActionButton.extended(
+          heroTag: 'admin_add_fabric_fab',
+          onPressed: () => _showAddEditDialog(),
+          backgroundColor: AppColors.gold,
+          icon: const Icon(Icons.add, color: Colors.black),
+          label: const Text('ADD FABRIC', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        ),
       ),
       body: Consumer<FabricProvider>(
         builder: (context, provider, child) {

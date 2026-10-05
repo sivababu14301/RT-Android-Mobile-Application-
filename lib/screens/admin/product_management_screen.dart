@@ -20,10 +20,13 @@ class ProductManagementScreen extends StatelessWidget {
       body: const Center(
         child: Text('Product Management Features Coming Soon', style: TextStyle(color: Colors.grey)),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: AppColors.gold,
-        child: const Icon(Icons.add, color: Colors.black),
+      floatingActionButton: SafeArea(
+        child: FloatingActionButton(
+          heroTag: 'product_mgmt_fab',
+          onPressed: () {},
+          backgroundColor: AppColors.gold,
+          child: const Icon(Icons.add, color: Colors.black),
+        ),
       ),
     );
   }
