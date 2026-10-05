@@ -119,18 +119,16 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
           );
         },
       ),
-      floatingActionButton: SafeArea(
-        child: FloatingActionButton(
-          heroTag: 'admin_add_category_fab',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddEditCategoryScreen()),
-            );
-          },
-          backgroundColor: AppColors.gold,
-          child: const Icon(Icons.add, color: Colors.black),
-        ),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'admin_add_category_fab',
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddEditCategoryScreen()),
+          );
+        },
+        backgroundColor: AppColors.gold,
+        child: const Icon(Icons.add, color: Colors.black),
       ),
     );
   }

@@ -81,14 +81,12 @@ class _AdminOfferListScreenState extends State<AdminOfferListScreen> {
           );
         },
       ),
-      floatingActionButton: SafeArea(
-        child: FloatingActionButton.extended(
-          heroTag: 'admin_add_offer_fab',
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminAddEditOfferScreen())),
-          backgroundColor: AppColors.gold,
-          icon: const Icon(Icons.add, color: Colors.black),
-          label: const Text('New Offer', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        ),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'admin_add_offer_fab',
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminAddEditOfferScreen())),
+        backgroundColor: AppColors.gold,
+        icon: const Icon(Icons.add, color: Colors.black),
+        label: const Text('New Offer', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
       ),
     );
   }
