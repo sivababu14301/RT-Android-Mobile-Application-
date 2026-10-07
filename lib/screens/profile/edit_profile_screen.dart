@@ -18,15 +18,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  
   File? _selectedImage;
+  bool _isPickingImage = false;
 
   @override
   void initState() {
     super.initState();
-    // Load initial data from provider
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     
-    // Ensure we have fresh data
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await userProvider.fetchProfile();
       _loadUserData();
@@ -54,14 +54,110 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+  void _showImageSourceModal(BuildContext context) {
+    if (_isPickingImage) return;
 
-    if (pickedFile != null) {
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-      });
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Profile Photo',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.camera_alt, color: AppColors.gold),
+              ),
+              title: const Text('Take Photo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.photo_library, color: AppColors.gold),
+              ),
+              title: const Text('Choose from Gallery', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, color: Colors.white70),
+              ),
+              title: const Text('Cancel', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    if (_isPickingImage) return;
+
+    setState(() {
+      _isPickingImage = true;
+    });
+
+    try {
+      final picker = ImagePicker();
+      final XFile? pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null && mounted) {
+        final File file = File(pickedFile.path);
+        if (file.existsSync()) {
+          setState(() {
+            _selectedImage = file;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ PICK IMAGE ERROR: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not select image'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingImage = false;
+        });
+      }
     }
   }
 
@@ -78,9 +174,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       debugPrint('PROFILE UPDATE - EMAIL: ${_emailController.text}');
       debugPrint('PROFILE UPDATE - MOBILE: ${_phoneController.text}');
 
-      // 1. Upload image if selected
-      if (_selectedImage != null) {
-        debugPrint('UPLOADING NEW PROFILE IMAGE...');
+      // 1. Upload new image if selected
+      if (_selectedImage != null && _selectedImage!.existsSync()) {
+        debugPrint('UPLOADING PROFILE IMAGE...');
         await userProvider.updateProfilePic(_selectedImage!);
       }
 
@@ -113,9 +209,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final userProvider = Provider.of<UserProvider>(context);
     final user = userProvider.user;
 
-    // Build the image provider logic
     ImageProvider profileImage;
-    if (_selectedImage != null) {
+    if (_selectedImage != null && _selectedImage!.existsSync()) {
       profileImage = FileImage(_selectedImage!);
     } else {
       profileImage = NetworkImage(user?.getProfileImage ?? 'https://ui-avatars.com/api/?name=User&background=D4AF37&color=0D0D0D&bold=true');
@@ -139,26 +234,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 20),
-                  Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 60,
-                        backgroundColor: AppColors.gold,
-                        child: CircleAvatar(radius: 57, backgroundImage: profileImage),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: GestureDetector(
-                          onTap: _pickImage,
+                  GestureDetector(
+                    onTap: () => _showImageSourceModal(context),
+                    child: Stack(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: AppColors.gold,
+                            shape: BoxShape.circle,
+                          ),
+                          child: CircleAvatar(
+                            radius: 57,
+                            backgroundColor: Colors.black,
+                            backgroundImage: profileImage,
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
                           child: Container(
                             padding: const EdgeInsets.all(8),
-                            decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
+                            decoration: BoxDecoration(
+                              color: AppColors.gold,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.black, width: 2),
+                            ),
                             child: const Icon(Icons.camera_alt, color: Colors.black, size: 20),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 40),
                   CustomTextField(

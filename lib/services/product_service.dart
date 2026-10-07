@@ -12,8 +12,9 @@ class ProductService {
   ProductService() {
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 60),
+      sendTimeout: const Duration(seconds: 60),
       validateStatus: (status) => true,
     ));
     _dio.interceptors.add(ApiConfig.retryInterceptor);
@@ -52,7 +53,7 @@ class ProductService {
   Future<List<String>> uploadImages(List<File> imageFiles, String token) async {
     try {
       const uploadUrl = 'products/upload';
-      debugPrint("🚀 UPLOADING IMAGES TO: ${_baseUrl}$uploadUrl");
+      debugPrint("🚀 UPLOADING IMAGES TO: $_baseUrl$uploadUrl");
 
       List<MultipartFile> files = [];
       for (var file in imageFiles) {
@@ -67,7 +68,11 @@ class ProductService {
       final response = await _dio.post(
         uploadUrl,
         data: formData,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
       );
 
       if (response.statusCode == 200 && response.data is Map && response.data['success'] == true) {
@@ -87,7 +92,11 @@ class ProductService {
       final response = await _dio.post(
         path,
         data: productData,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
       );
       
       if (response.statusCode == 201 && response.data is Map) {
@@ -106,7 +115,11 @@ class ProductService {
       final response = await _dio.put(
         path,
         data: productData,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
       );
       
       if (response.statusCode == 200 && response.data is Map) {

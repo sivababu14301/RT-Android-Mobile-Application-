@@ -205,16 +205,22 @@ class _AdminProductListScreenState extends State<AdminProductListScreen> {
                 width: 80,
                 height: 80,
                 child: Image.network(
-                  product.imageUrl,
+                  product.imageUrl.isNotEmpty ? product.imageUrl : 'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop',
                   width: 80,
                   height: 80,
-                  fit: BoxFit.contain,
+                  fit: BoxFit.cover,
                   alignment: Alignment.center,
-                  errorBuilder: (context, error, stackTrace) => Container(
+                  errorBuilder: (context, error, stackTrace) => Image.network(
+                    'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop',
                     width: 80,
                     height: 80,
-                    color: Colors.black12,
-                    child: const Icon(Icons.error, color: AppColors.gold),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      width: 80,
+                      height: 80,
+                      color: AppColors.card,
+                      child: const Icon(Icons.checkroom_outlined, color: AppColors.gold),
+                    ),
                   ),
                 ),
               ),

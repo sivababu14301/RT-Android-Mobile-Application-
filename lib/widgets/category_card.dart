@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../config/app_colors.dart';
 import '../config/api_config.dart';
+import '../models/category_model.dart';
 
 class CategoryCard extends StatelessWidget {
   final String title;
@@ -19,19 +20,18 @@ class CategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget iconContent;
-    if (imageUrl != null && imageUrl!.isNotEmpty) {
-      final baseServerUrl = ApiConfig.baseServerUrl;
-      final fullUrl = imageUrl!.startsWith('http') 
-          ? imageUrl! 
-          : '$baseServerUrl${imageUrl!.startsWith('/') ? '' : '/'}$imageUrl';
-      
+    if (imageUrl != null && imageUrl!.startsWith('http')) {
       iconContent = ClipOval(
         child: Image.network(
-          fullUrl,
+          imageUrl!,
           fit: BoxFit.cover,
           width: double.infinity,
           height: double.infinity,
-          errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: AppColors.gold, size: 20),
+          errorBuilder: (context, error, stackTrace) => Icon(
+            CategoryModel.getIconForName(title),
+            color: AppColors.gold,
+            size: 28,
+          ),
         ),
       );
     } else if (emoji != null) {
@@ -41,7 +41,7 @@ class CategoryCard extends StatelessWidget {
       );
     } else {
       iconContent = Icon(
-        icon ?? Icons.category,
+        icon ?? CategoryModel.getIconForName(title),
         color: AppColors.gold,
         size: 28,
       );
@@ -55,10 +55,10 @@ class CategoryCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.card,
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.goldBorder.withOpacity(0.5)),
+            border: Border.all(color: AppColors.goldBorder.withValues(alpha: 0.5)),
             boxShadow: [
               BoxShadow(
-                color: AppColors.gold.withOpacity(0.05),
+                color: AppColors.gold.withValues(alpha: 0.05),
                 blurRadius: 10,
                 spreadRadius: 2,
               ),

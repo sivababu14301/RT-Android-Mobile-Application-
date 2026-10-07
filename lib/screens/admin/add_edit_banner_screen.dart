@@ -22,6 +22,8 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
   late TextEditingController _titleController;
   late TextEditingController _linkController;
   late TextEditingController _orderController;
+  
+  bool _isSubmitting = false;
   String _selectedCategory = 'Shirts';
   bool _isActive = true;
   File? _selectedImage;
@@ -74,7 +76,9 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
   }
 
   void _saveBanner() async {
-    if (_titleController.text.isEmpty) {
+    if (_isSubmitting) return; // Prevent duplicate requests on multiple taps
+
+    if (_titleController.text.trim().isEmpty) {
       _showError('Please enter a title');
       return;
     }
@@ -88,11 +92,18 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
       return;
     }
 
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    debugPrint("[ADMIN BANNER] Submit started");
+
     final bannerProvider = context.read<BannerProvider>();
     String? imageUrl = widget.banner?.image;
 
     try {
       if (_selectedImage != null) {
+        debugPrint("[ADMIN BANNER] Uploading banner image to Cloudinary/Render...");
         imageUrl = await bannerProvider.uploadImage(_selectedImage!, token);
         if (imageUrl == null) {
           _showError('Failed to upload image');
@@ -106,27 +117,29 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
       }
 
       final bannerData = {
-        'title': _titleController.text,
+        'title': _titleController.text.trim(),
         'image': imageUrl,
         'link': _selectedCategory,
         'category': _selectedCategory,
         'categoryId': _selectedCategory,
         'targetType': 'category',
         'isActive': _isActive,
-        'order': int.tryParse(_orderController.text) ?? 0,
+        'order': int.tryParse(_orderController.text.trim()) ?? 0,
       };
 
+      debugPrint("[ADMIN BANNER] API request started");
       String? error;
       if (widget.banner == null) {
         error = await bannerProvider.addBanner(bannerData, token);
       } else {
         error = await bannerProvider.updateBanner(widget.banner!.id, bannerData, token);
       }
+      debugPrint("[ADMIN BANNER] API response received & submit completed");
 
       if (mounted) {
         if (error == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(widget.banner == null ? 'Banner added' : 'Banner updated'), backgroundColor: Colors.green),
+            SnackBar(content: Text(widget.banner == null ? 'Banner added successfully' : 'Banner updated successfully'), backgroundColor: Colors.green),
           );
           Navigator.pop(context);
         } else {
@@ -134,7 +147,20 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
         }
       }
     } catch (e) {
-      _showError(e.toString());
+      debugPrint("❌ [ADMIN BANNER ERROR]: $e");
+      if (mounted) {
+        String errorMsg = e.toString();
+        if (errorMsg.contains('receive timeout') || errorMsg.contains('took longer than')) {
+          errorMsg = 'Request timed out uploading image. Please check your network and try again.';
+        }
+        _showError(errorMsg);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 
@@ -179,7 +205,7 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
         child: Column(
           children: [
             GestureDetector(
-              onTap: _pickImage,
+              onTap: _isSubmitting ? null : _pickImage,
               child: Container(
                 height: 180,
                 width: double.infinity,
@@ -210,14 +236,14 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
               title: const Text('Active Status', style: TextStyle(color: Colors.white)),
               value: _isActive,
               activeThumbColor: AppColors.gold,
-              onChanged: (val) => setState(() => _isActive = val),
+              onChanged: _isSubmitting ? null : (val) => setState(() => _isActive = val),
             ),
             const SizedBox(height: 30),
-            isLoading
+            (_isSubmitting || isLoading)
                 ? const CircularProgressIndicator(color: AppColors.gold)
                 : CustomButton(
                     text: isEdit ? 'UPDATE BANNER' : 'SAVE BANNER',
-                    onPressed: _saveBanner,
+                    onPressed: _isSubmitting ? () {} : _saveBanner,
                   ),
             const SizedBox(height: 20),
           ],
@@ -263,7 +289,7 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
                   value: cat,
                   child: Text('Target Category: $cat', style: const TextStyle(color: Colors.white)),
                 )).toList(),
-                onChanged: (val) {
+                onChanged: _isSubmitting ? null : (val) {
                   if (val != null) {
                     setState(() {
                       _selectedCategory = val;
@@ -288,6 +314,7 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
       ),
       child: TextField(
         controller: controller,
+        enabled: !_isSubmitting,
         keyboardType: keyboardType,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(

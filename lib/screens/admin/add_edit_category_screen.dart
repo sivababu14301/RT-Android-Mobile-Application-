@@ -20,6 +20,8 @@ class AddEditCategoryScreen extends StatefulWidget {
 class _AddEditCategoryScreenState extends State<AddEditCategoryScreen> {
   late TextEditingController _nameController;
   late TextEditingController _descController;
+  
+  bool _isSubmitting = false;
   bool _isActive = true;
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
@@ -30,6 +32,11 @@ class _AddEditCategoryScreenState extends State<AddEditCategoryScreen> {
     _nameController = TextEditingController(text: widget.category?.name ?? '');
     _descController = TextEditingController(text: widget.category?.description ?? '');
     _isActive = widget.category?.isActive ?? true;
+
+    // Listen to name changes to update live icon preview
+    _nameController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -48,15 +55,15 @@ class _AddEditCategoryScreenState extends State<AddEditCategoryScreen> {
         });
       }
     } catch (e) {
-      debugPrint("❌ PICK IMAGE ERROR: $e");
+      debugPrint("❌ OPTIONAL PICK CATEGORY IMAGE ERROR: $e");
     }
   }
 
   void _saveCategory() async {
-    if (_nameController.text.isEmpty || _descController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
+    if (_isSubmitting) return; // Prevent duplicate requests on multiple taps
+
+    if (_nameController.text.trim().isEmpty) {
+      _showError('Please enter a category name');
       return;
     }
 
@@ -65,40 +72,44 @@ class _AddEditCategoryScreenState extends State<AddEditCategoryScreen> {
     final token = adminProvider.admin?.token ?? userProvider.user?.token;
 
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Not authorized')),
-      );
+      _showError('Not authorized');
       return;
     }
 
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    debugPrint("[ADMIN CATEGORY] Submit started");
+
     final categoryProvider = context.read<CategoryProvider>();
-    String? uploadedImageUrl = widget.category?.image;
+    String uploadedImageUrl = widget.category?.image ?? '';
 
     try {
-      // 1. Upload image if selected
+      // Optional image upload
       if (_selectedImage != null) {
+        debugPrint("[ADMIN CATEGORY] Uploading optional category image...");
         final newUrl = await categoryProvider.uploadImage(_selectedImage!, token);
-        if (newUrl != null) {
+        if (newUrl != null && newUrl.isNotEmpty) {
           uploadedImageUrl = newUrl;
-        } else {
-          _showError('Failed to upload image');
-          return;
         }
       }
 
       final categoryData = {
-        'name': _nameController.text,
-        'description': _descController.text,
+        'name': _nameController.text.trim(),
+        'description': _descController.text.trim().isEmpty ? 'Custom Tailored Collection' : _descController.text.trim(),
         'isActive': _isActive,
-        'image': uploadedImageUrl ?? '',
+        'image': uploadedImageUrl,
       };
 
+      debugPrint("[ADMIN CATEGORY] API request started");
       String? errorMessage;
       if (widget.category == null) {
         errorMessage = await categoryProvider.addCategory(categoryData, token);
       } else {
         errorMessage = await categoryProvider.updateCategory(widget.category!.id, categoryData, token);
       }
+      debugPrint("[ADMIN CATEGORY] API response received & submit completed");
 
       if (mounted) {
         if (errorMessage == null) {
@@ -114,7 +125,20 @@ class _AddEditCategoryScreenState extends State<AddEditCategoryScreen> {
         }
       }
     } catch (e) {
-      _showError(e.toString());
+      debugPrint("❌ [ADMIN CATEGORY ERROR]: $e");
+      if (mounted) {
+        String errorMsg = e.toString();
+        if (errorMsg.contains('receive timeout') || errorMsg.contains('took longer than')) {
+          errorMsg = 'Request timed out. Please check your network and try again.';
+        }
+        _showError(errorMsg);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 
@@ -130,21 +154,16 @@ class _AddEditCategoryScreenState extends State<AddEditCategoryScreen> {
   Widget build(BuildContext context) {
     bool isEdit = widget.category != null;
     final isLoading = context.watch<CategoryProvider>().isLoading;
+    final IconData smartIcon = CategoryModel.getIconForName(_nameController.text);
 
-    // Resolve image to display
     Widget? imageWidget;
     if (_selectedImage != null) {
       imageWidget = Image.file(_selectedImage!, fit: BoxFit.cover);
-    } else if (widget.category != null && widget.category!.image.isNotEmpty) {
-      final baseServerUrl = Platform.isAndroid ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
-      final fullUrl = widget.category!.image.startsWith('http') 
-          ? widget.category!.image 
-          : '$baseServerUrl${widget.category!.image.startsWith('/') ? '' : '/'}${widget.category!.image}';
-      
+    } else if (widget.category != null && widget.category!.image.startsWith('http')) {
       imageWidget = Image.network(
-        fullUrl, 
+        widget.category!.image,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: AppColors.gold),
+        errorBuilder: (context, error, stackTrace) => Icon(smartIcon, color: AppColors.gold, size: 48),
       );
     }
 
@@ -166,30 +185,42 @@ class _AddEditCategoryScreenState extends State<AddEditCategoryScreen> {
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            // Icon Upload Area
+            // Smart Icon Preview
             GestureDetector(
-              onTap: _pickImage,
+              onTap: _isSubmitting ? null : _pickImage,
               child: Container(
                 height: 120,
                 width: 120,
                 decoration: BoxDecoration(
                   color: AppColors.card,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.goldBorder.withValues(alpha: 0.3)),
+                  border: Border.all(color: AppColors.gold, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.gold.withValues(alpha: 0.15),
+                      blurRadius: 15,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
                 child: ClipOval(
-                  child: imageWidget ?? const Column(
+                  child: imageWidget ?? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.add_photo_alternate_outlined, color: AppColors.gold, size: 30),
-                      SizedBox(height: 4),
-                      Text('Icon', style: TextStyle(color: AppColors.grey, fontSize: 10)),
+                      Icon(smartIcon, color: AppColors.gold, size: 48),
+                      const SizedBox(height: 4),
+                      const Text('Change Photo', style: TextStyle(color: AppColors.grey, fontSize: 10)),
                     ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 12),
+            Text(
+              'Category Icon Preview: ${_nameController.text.isEmpty ? "Default" : _nameController.text}',
+              style: const TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 32),
             Container(
               decoration: BoxDecoration(
                 color: AppColors.card,
@@ -197,6 +228,7 @@ class _AddEditCategoryScreenState extends State<AddEditCategoryScreen> {
               ),
               child: TextField(
                 controller: _nameController,
+                enabled: !_isSubmitting,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
                   labelText: 'Category Name',
@@ -215,10 +247,11 @@ class _AddEditCategoryScreenState extends State<AddEditCategoryScreen> {
               ),
               child: TextField(
                 controller: _descController,
+                enabled: !_isSubmitting,
                 maxLines: 3,
                 style: const TextStyle(color: Colors.white),
                 decoration: const InputDecoration(
-                  labelText: 'Description',
+                  labelText: 'Description (Optional)',
                   labelStyle: TextStyle(color: AppColors.grey),
                   prefixIcon: Icon(Icons.description_outlined, color: AppColors.gold, size: 20),
                   border: InputBorder.none,
@@ -231,14 +264,14 @@ class _AddEditCategoryScreenState extends State<AddEditCategoryScreen> {
               title: const Text('Enable Category', style: TextStyle(color: Colors.white)),
               value: _isActive,
               activeThumbColor: AppColors.gold,
-              onChanged: (val) => setState(() => _isActive = val),
+              onChanged: _isSubmitting ? null : (val) => setState(() => _isActive = val),
             ),
             const SizedBox(height: 40),
-            isLoading
+            (_isSubmitting || isLoading)
               ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
               : CustomButton(
                   text: isEdit ? 'UPDATE CATEGORY' : 'SAVE CATEGORY',
-                  onPressed: _saveCategory,
+                  onPressed: _isSubmitting ? () {} : _saveCategory,
                 ),
             const SizedBox(height: 20),
           ],

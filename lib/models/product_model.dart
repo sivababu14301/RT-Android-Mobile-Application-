@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-import 'dart:io';
 import '../config/api_config.dart';
 
 class Product {
@@ -54,21 +52,33 @@ class Product {
     if (path.trim().isEmpty) return '';
     String cleanPath = path.replaceAll('\\', '/').trim();
 
-    if (!kIsWeb) {
-      try {
-        if (Platform.isAndroid) {
-          cleanPath = cleanPath
-              .replaceAll('localhost:5000', '${ApiConfig.wifiIp}:${ApiConfig.port}')
-              .replaceAll('127.0.0.1:5000', '${ApiConfig.wifiIp}:${ApiConfig.port}');
-        }
-      } catch (_) {}
-    }
+    // Convert local dev addresses (localhost, 10.0.2.2, wifi IP) to production server URL
+    cleanPath = cleanPath
+        .replaceAll('http://localhost:5000', ApiConfig.baseServerUrl)
+        .replaceAll('https://localhost:5000', ApiConfig.baseServerUrl)
+        .replaceAll('http://127.0.0.1:5000', ApiConfig.baseServerUrl)
+        .replaceAll('https://127.0.0.1:5000', ApiConfig.baseServerUrl)
+        .replaceAll('http://10.0.2.2:5000', ApiConfig.baseServerUrl)
+        .replaceAll('https://10.0.2.2:5000', ApiConfig.baseServerUrl)
+        .replaceAll('http://10.69.215.137:5000', ApiConfig.baseServerUrl)
+        .replaceAll('https://10.69.215.137:5000', ApiConfig.baseServerUrl);
+
+    // Prevent double /api/ in uploads path
+    cleanPath = cleanPath.replaceAll('/api/uploads/', '/uploads/');
 
     if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
       return cleanPath;
-    } else {
-      return '$baseServerUrl${cleanPath.startsWith('/') ? '' : '/'}$cleanPath';
     }
+
+    if (cleanPath.startsWith('/uploads/')) {
+      return '${ApiConfig.baseServerUrl}$cleanPath';
+    }
+
+    if (cleanPath.startsWith('uploads/')) {
+      return '${ApiConfig.baseServerUrl}/$cleanPath';
+    }
+
+    return '${ApiConfig.baseServerUrl}${cleanPath.startsWith('/') ? '' : '/'}$cleanPath';
   }
 
   String get imageUrl {

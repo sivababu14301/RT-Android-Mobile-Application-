@@ -4,6 +4,9 @@ import '../config/app_colors.dart';
 class ProductImageSlider extends StatefulWidget {
   final List<String> images;
 
+  static const String fallbackImageUrl =
+      'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop';
+
   const ProductImageSlider({super.key, required this.images});
 
   @override
@@ -42,9 +45,9 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                 _currentIndex = index;
               });
             },
-            itemCount: widget.images.length,
+            itemCount: widget.images.isEmpty ? 1 : widget.images.length,
             itemBuilder: (context, index) {
-              final imageUrl = widget.images[index];
+              final imageUrl = widget.images.isNotEmpty ? widget.images[index] : ProductImageSlider.fallbackImageUrl;
               return GestureDetector(
                 onTap: () => _openFullScreenViewer(index),
                 child: Container(
@@ -60,8 +63,14 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                       fit: BoxFit.contain,
                       alignment: Alignment.center,
                       errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Icon(Icons.broken_image, color: AppColors.gold, size: 60),
+                        return Image.network(
+                          ProductImageSlider.fallbackImageUrl,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => const Center(
+                            child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 60),
+                          ),
                         );
                       },
                     ),
@@ -142,17 +151,18 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
       body: PageView.builder(
         controller: _controller,
         onPageChanged: (idx) => setState(() => _currentIndex = idx),
-        itemCount: widget.images.length,
+        itemCount: widget.images.isEmpty ? 1 : widget.images.length,
         itemBuilder: (context, index) {
+          final imageUrl = widget.images.isNotEmpty ? widget.images[index] : ProductImageSlider.fallbackImageUrl;
           return InteractiveViewer(
             minScale: 0.5,
             maxScale: 4.0,
             child: Center(
               child: Image.network(
-                widget.images[index],
+                imageUrl,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.broken_image, color: AppColors.gold, size: 60),
+                    Image.network(ProductImageSlider.fallbackImageUrl, fit: BoxFit.contain),
               ),
             ),
           );

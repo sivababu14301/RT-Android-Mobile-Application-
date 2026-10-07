@@ -56,7 +56,6 @@ class UserProvider with ChangeNotifier {
         
         return message;
       } else {
-        // This case handles success: false from backend even if 2xx status
         final errorMsg = response.data['message'] ?? 'Login failed';
         debugPrint('LOGIN DATA FAILED FLAG: $errorMsg');
         throw errorMsg;

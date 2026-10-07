@@ -26,6 +26,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   late TextEditingController _descController;
   late TextEditingController _colorsController;
   
+  bool _isSubmitting = false;
   String _selectedCategory = 'Shirts';
   List<String> _selectedFabrics = ['Cotton'];
   List<String> _selectedSizes = [];
@@ -163,7 +164,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                     if (result['success'] == true) {
                       setState(() {
                         if (!_selectedFabrics.contains(fabricName)) {
-                          _selectedFabrics.add(fabricName); // Automatically select newly added extra fabric
+                          _selectedFabrics.add(fabricName);
                         }
                       });
                       ScaffoldMessenger.of(parentContext).showSnackBar(
@@ -235,6 +236,8 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   }
 
   void _saveProduct() async {
+    if (_isSubmitting) return; // Prevent duplicate requests on multiple taps
+
     if (_nameController.text.trim().isEmpty) {
       _showError('Product name is required');
       return;
@@ -278,10 +281,17 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       return;
     }
 
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    debugPrint("[ADMIN PRODUCT] Submit started");
+
     try {
       List<String> imageUrls = widget.product?.images != null ? List<String>.from(widget.product!.images) : [];
 
       if (_selectedImageFiles.isNotEmpty) {
+        debugPrint("[ADMIN PRODUCT] Uploading images to Cloudinary/Render...");
         final newUrls = await productProvider.uploadImages(_selectedImageFiles, token);
         imageUrls.addAll(newUrls);
       }
@@ -304,11 +314,13 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         'allowCustomFit': isShirtOrPant ? true : (_allowCustomFit || _selectedSizes.contains('Custom Fit')),
       };
 
+      debugPrint("[ADMIN PRODUCT] API request started");
       if (widget.product != null) {
         await productProvider.updateProduct(widget.product!.id, productData, token);
       } else {
         await productProvider.addProduct(productData, token);
       }
+      debugPrint("[ADMIN PRODUCT] API response received & submit completed");
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -320,8 +332,19 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
+      debugPrint("❌ [ADMIN PRODUCT ERROR]: $e");
       if (mounted) {
-        _showError('Error: ${e.toString()}');
+        String errorMsg = e.toString();
+        if (errorMsg.contains('receive timeout') || errorMsg.contains('took longer than')) {
+          errorMsg = 'Request timed out uploading images. Please check your network and try again.';
+        }
+        _showError(errorMsg);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
       }
     }
   }
@@ -358,7 +381,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           children: [
             // Image Upload Area
             GestureDetector(
-              onTap: _pickImages,
+              onTap: _isSubmitting ? null : _pickImages,
               child: Container(
                 height: 180,
                 width: double.infinity,
@@ -430,7 +453,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 }
 
                 if (_selectedCategory.isNotEmpty && !displayCategories.contains(_selectedCategory)) {
-                  displayCategories.add(_selectedCategory); // Preserve existing product category
+                  displayCategories.add(_selectedCategory);
                 }
 
                 if (!displayCategories.contains(_selectedCategory) && displayCategories.isNotEmpty) {
@@ -456,7 +479,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                           child: Text(value),
                         );
                       }).toList(),
-                      onChanged: (newValue) {
+                      onChanged: _isSubmitting ? null : (newValue) {
                         if (newValue != null) {
                           setState(() => _selectedCategory = newValue);
                         }
@@ -488,7 +511,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 return _buildSelectableButton(
                   text: size,
                   isSelected: isSelected,
-                  onTap: () => _toggleSize(size),
+                  onTap: _isSubmitting ? () {} : () => _toggleSize(size),
                   width: 60,
                 );
               }).toList(),
@@ -502,7 +525,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 return _buildSelectableButton(
                   text: isShirtOrPantCategory ? 'Custom Fit (Always On)' : 'Custom Fit',
                   isSelected: isShirtOrPantCategory || _selectedSizes.contains('Custom Fit') || _allowCustomFit,
-                  onTap: () {
+                  onTap: _isSubmitting ? () {} : () {
                     if (isShirtOrPantCategory) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Custom Fit is always enabled for Shirts & Pants.')),
@@ -535,7 +558,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 }
                 for (var sel in _selectedFabrics) {
                   if (!displayFabrics.contains(sel)) {
-                    displayFabrics.add(sel); // Preserve existing assigned fabrics
+                    displayFabrics.add(sel);
                   }
                 }
 
@@ -548,12 +571,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                       return _buildSelectableButton(
                         text: fabric,
                         isSelected: isSelected,
-                        onTap: () => _toggleFabricSelection(fabric),
+                        onTap: _isSubmitting ? () {} : () => _toggleFabricSelection(fabric),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       );
                     }),
                     GestureDetector(
-                      onTap: () => _showAddExtraFabricDialog(context),
+                      onTap: _isSubmitting ? null : () => _showAddExtraFabricDialog(context),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
@@ -591,15 +614,15 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               title: const Text('Featured Product', style: TextStyle(color: Colors.white, fontSize: 14)),
               value: _isFeatured,
               activeThumbColor: AppColors.gold,
-              onChanged: (val) => setState(() => _isFeatured = val),
+              onChanged: _isSubmitting ? null : (val) => setState(() => _isFeatured = val),
             ),
             const SizedBox(height: 32),
             
-            isLoading
+            (_isSubmitting || isLoading)
                 ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
                 : CustomButton(
                     text: isEdit ? 'UPDATE PRODUCT' : 'ADD PRODUCT',
-                    onPressed: _saveProduct,
+                    onPressed: _isSubmitting ? () {} : _saveProduct,
                   ),
             const SizedBox(height: 40),
           ],
@@ -670,7 +693,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
           top: 0,
           right: 12,
           child: GestureDetector(
-            onTap: onRemove,
+            onTap: _isSubmitting ? null : onRemove,
             child: Container(
               padding: const EdgeInsets.all(2),
               decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
@@ -691,6 +714,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       ),
       child: TextField(
         controller: controller,
+        enabled: !_isSubmitting,
         keyboardType: keyboardType,
         maxLines: maxLines,
         style: const TextStyle(color: Colors.white),

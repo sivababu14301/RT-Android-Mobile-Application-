@@ -27,6 +27,7 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
   final _descController = TextEditingController();
   final _linkController = TextEditingController();
 
+  bool _isSubmitting = false;
   String _linkType = 'Category'; // 'Category' or 'Product'
   String _selectedCategoryLink = 'Wedding Collection';
   String _selectedProductId = '';
@@ -85,15 +86,20 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
   }
 
   Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _selectedImage = File(image.path);
-      });
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+        });
+      }
+    } catch (e) {
+      debugPrint("❌ PICK OFFER IMAGE ERROR: $e");
     }
   }
 
   Future<void> _pickDateTime(bool isStart) async {
+    if (_isSubmitting) return;
     final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: isStart ? _startDate : _endDate,
@@ -112,6 +118,7 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
     );
 
     if (pickedDate != null) {
+      if (!mounted) return;
       final TimeOfDay? pickedTime = await showTimePicker(
         context: context,
         initialTime: isStart ? _startTime : _endTime,
@@ -132,8 +139,10 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
   }
 
   void _saveOffer() async {
-    if (_nameController.text.isEmpty || _discountController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all required fields')));
+    if (_isSubmitting) return; // Prevent duplicate requests on multiple taps
+
+    if (_nameController.text.trim().isEmpty || _discountController.text.trim().isEmpty) {
+      _showError('Please fill all required fields');
       return;
     }
 
@@ -141,7 +150,7 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
     final end = DateTime(_endDate.year, _endDate.month, _endDate.day, _endTime.hour, _endTime.minute);
 
     if (end.isBefore(start)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('End date must be after Start date')));
+      _showError('End date must be after Start date');
       return;
     }
 
@@ -150,24 +159,31 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
     final token = adminProvider.admin?.token ?? userProvider.user?.token;
 
     if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not authorized')));
+      _showError('Not authorized');
       return;
     }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    debugPrint("[ADMIN OFFER] Submit started");
 
     final offerProvider = context.read<OfferProvider>();
     String? imageUrl = widget.offer?.offerImage;
 
     try {
       if (_selectedImage != null) {
+        debugPrint("[ADMIN OFFER] Uploading offer image to Cloudinary/Render...");
         imageUrl = await offerProvider.uploadImage(_selectedImage!, token);
         if (imageUrl == null) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to upload image')));
+          _showError('Failed to upload image');
           return;
         }
       }
 
       if (imageUrl == null || imageUrl.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select an image')));
+        _showError('Please select an image');
         return;
       }
 
@@ -193,9 +209,9 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
       }
 
       final offerData = {
-        'title': _nameController.text,
-        'discount': _discountController.text,
-        'description': _descController.text,
+        'title': _nameController.text.trim(),
+        'discount': _discountController.text.trim(),
+        'description': _descController.text.trim(),
         'image': imageUrl,
         'targetType': finalTargetType,
         'category': finalCategory,
@@ -209,25 +225,48 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
         'isActive': _isEnabled,
       };
 
+      debugPrint("[ADMIN OFFER] API request started");
       String? error;
       if (widget.offer == null) {
         error = await offerProvider.addOffer(offerData, token);
       } else {
         error = await offerProvider.updateOffer(widget.offer!.id, offerData, token);
       }
+      debugPrint("[ADMIN OFFER] API response received & submit completed");
 
       if (mounted) {
         if (error == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(widget.offer == null ? 'Offer added' : 'Offer updated'), backgroundColor: Colors.green),
+            SnackBar(content: Text(widget.offer == null ? 'Offer added successfully' : 'Offer updated successfully'), backgroundColor: Colors.green),
           );
           Navigator.pop(context);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error), backgroundColor: Colors.red));
+          _showError(error);
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+      debugPrint("❌ [ADMIN OFFER ERROR]: $e");
+      if (mounted) {
+        String errorMsg = e.toString();
+        if (errorMsg.contains('receive timeout') || errorMsg.contains('took longer than')) {
+          errorMsg = 'Request timed out uploading image. Please check your network and try again.';
+        }
+        _showError(errorMsg);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  void _showError(String msg) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -240,7 +279,11 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text(widget.offer == null ? 'Add Offer' : 'Edit Offer', style: const TextStyle(color: Colors.white)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.gold),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(widget.offer == null ? 'Add Offer' : 'Edit Offer', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -263,13 +306,13 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
               subtitle: Text(_isEnabled ? 'Active' : 'Inactive', style: const TextStyle(color: Colors.white54, fontSize: 12)),
               value: _isEnabled,
               activeThumbColor: AppColors.gold,
-              onChanged: (val) => setState(() => _isEnabled = val),
+              onChanged: _isSubmitting ? null : (val) => setState(() => _isEnabled = val),
               contentPadding: EdgeInsets.zero,
             ),
             const SizedBox(height: 48),
-            isLoading 
+            (_isSubmitting || isLoading)
               ? const CircularProgressIndicator(color: AppColors.gold)
-              : CustomButton(text: 'SAVE OFFER', onPressed: _saveOffer),
+              : CustomButton(text: widget.offer == null ? 'SAVE OFFER' : 'UPDATE OFFER', onPressed: _isSubmitting ? () {} : _saveOffer),
           ],
         ),
       ),
@@ -306,7 +349,7 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
                 selectedColor: AppColors.gold,
                 backgroundColor: AppColors.card,
                 labelStyle: TextStyle(color: _linkType == 'Category' ? Colors.black : Colors.white, fontWeight: FontWeight.bold),
-                onSelected: (val) {
+                onSelected: _isSubmitting ? null : (val) {
                   if (val) setState(() => _linkType = 'Category');
                 },
               ),
@@ -319,7 +362,7 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
                 selectedColor: AppColors.gold,
                 backgroundColor: AppColors.card,
                 labelStyle: TextStyle(color: _linkType == 'Product' ? Colors.black : Colors.white, fontWeight: FontWeight.bold),
-                onSelected: (val) {
+                onSelected: _isSubmitting ? null : (val) {
                   if (val) setState(() => _linkType = 'Product');
                 },
               ),
@@ -342,7 +385,7 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
                   value: cat,
                   child: Text(cat, style: const TextStyle(color: Colors.white)),
                 )).toList(),
-                onChanged: (val) {
+                onChanged: _isSubmitting ? null : (val) {
                   if (val != null) {
                     setState(() {
                       _selectedCategoryLink = val;
@@ -371,7 +414,7 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
                   value: prod.id,
                   child: Text('${prod.name} (₹${prod.price.toInt()})', style: const TextStyle(color: Colors.white)),
                 )).toList(),
-                onChanged: (val) {
+                onChanged: _isSubmitting ? null : (val) {
                   if (val != null) {
                     setState(() {
                       _selectedProductId = val;
@@ -395,7 +438,7 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
     }
 
     return GestureDetector(
-      onTap: _pickImage,
+      onTap: _isSubmitting ? null : _pickImage,
       child: Container(
         height: 160,
         width: double.infinity,
@@ -434,7 +477,7 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
         Text(label, style: const TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: onTap,
+          onTap: _isSubmitting ? null : onTap,
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)),

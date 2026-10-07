@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'dart:io';
 import 'package:dio/dio.dart';
 
 class ApiConfig {
@@ -8,7 +7,7 @@ class ApiConfig {
   static const String port = '5000';
 
   static String get baseUrl {
-      return 'https://rt-android-mobile-application.onrender.com/api/';
+    return 'https://rt-android-mobile-application.onrender.com/api/';
   }
 
   static String get baseServerUrl {
@@ -23,6 +22,12 @@ class ApiConfig {
 
   static Interceptor get retryInterceptor => InterceptorsWrapper(
         onError: (DioException err, handler) async {
+          // NEVER automatically retry creation/mutation requests (POST/PUT/DELETE)
+          final method = err.requestOptions.method.toUpperCase();
+          if (method == 'POST' || method == 'PUT' || method == 'DELETE') {
+            return handler.next(err);
+          }
+
           if (err.type == DioExceptionType.connectionTimeout ||
               err.type == DioExceptionType.connectionError ||
               err.type == DioExceptionType.receiveTimeout ||
@@ -40,8 +45,8 @@ class ApiConfig {
                   debugPrint('🔄 Retrying request with candidate base URL: $newBase${opts.path}');
 
                   final client = Dio(BaseOptions(
-                    connectTimeout: const Duration(seconds: 5),
-                    receiveTimeout: const Duration(seconds: 5),
+                    connectTimeout: const Duration(seconds: 15),
+                    receiveTimeout: const Duration(seconds: 15),
                     validateStatus: (status) => true,
                   ));
 

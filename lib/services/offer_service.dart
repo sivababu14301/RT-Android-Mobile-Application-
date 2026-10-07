@@ -12,8 +12,9 @@ class OfferService {
   OfferService() {
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 60),
+      sendTimeout: const Duration(seconds: 60),
       validateStatus: (status) => true,
     ));
     _dio.interceptors.add(ApiConfig.retryInterceptor);
@@ -38,7 +39,11 @@ class OfferService {
       final response = await _dio.post(
         'offers',
         data: offerData,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
       );
       return response.data;
     } catch (e) {
@@ -51,7 +56,11 @@ class OfferService {
       final response = await _dio.put(
         'offers/$id',
         data: offerData,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
       );
       return response.data;
     } catch (e) {
@@ -81,7 +90,11 @@ class OfferService {
       final response = await _dio.post(
         'products/upload',
         data: formData,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 60),
+        ),
       );
 
       if (response.statusCode == 200 && response.data['success'] == true) {

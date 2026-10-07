@@ -9,6 +9,9 @@ import '../screens/products/product_details_screen.dart';
 class WishlistCard extends StatelessWidget {
   final Product product;
 
+  static const String fallbackImageUrl =
+      'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop';
+
   const WishlistCard({super.key, required this.product});
 
   @override
@@ -30,7 +33,7 @@ class WishlistCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: AppColors.goldBorder.withOpacity(0.1)),
+          border: Border.all(color: AppColors.goldBorder.withValues(alpha: 0.1)),
         ),
         child: Row(
           children: [
@@ -42,12 +45,20 @@ class WishlistCard extends StatelessWidget {
                 width: 80,
                 height: 80,
                 child: Image.network(
-                  product.imageUrl,
+                  product.imageUrl.isNotEmpty ? product.imageUrl : fallbackImageUrl,
                   width: 80,
                   height: 80,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const Icon(Icons.error, color: AppColors.gold),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Image.network(
+                    fallbackImageUrl,
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: AppColors.card,
+                      child: const Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 30),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -103,8 +114,6 @@ class WishlistCard extends StatelessWidget {
                 IconButton(
                   onPressed: () {
                     final token = context.read<UserProvider>().user?.token;
-                    debugPrint("REMOVE FROM WISHLIST CLICKED");
-                    debugPrint("PRODUCT ID: ${product.id}");
                     if (token != null) {
                       wishlistProvider.removeFromWishlist(product.id, token);
                     }
@@ -116,7 +125,6 @@ class WishlistCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () {
-                    // Moving to details to select size/color first is better for tailoring
                     Navigator.push(
                       context,
                       MaterialPageRoute(

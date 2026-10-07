@@ -2,6 +2,7 @@ const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 
 const formatDateTime = (now = new Date()) => {
   const year = now.getFullYear();
@@ -83,7 +84,7 @@ const addOrderItems = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No order items provided' });
     }
 
-    // Step 1: Validate stock availability for all order items
+    // Validate stock
     for (const item of orderItems) {
       const pId = item.product || item.productId || item._id;
       const qty = item.quantity || item.qty || 1;
@@ -103,7 +104,7 @@ const addOrderItems = async (req, res) => {
       }
     }
 
-    // Step 2: Decrement product stock in MongoDB Atlas
+    // Decrement stock
     for (const item of orderItems) {
       const pId = item.product || item.productId || item._id;
       const qty = item.quantity || item.qty || 1;
@@ -133,23 +134,21 @@ const addOrderItems = async (req, res) => {
 
     const createdOrder = await order.save();
 
-    // Clear the user's cart after successful order
     await Cart.findOneAndDelete({ userId: req.user._id });
 
-    // Send initial "Order Placed" notification
+    // Send initial in-app notification
     try {
-      const notifContent = getStatusNotificationContent('Order Placed', createdOrder._id);
       await Notification.create({
         userId: req.user._id,
         orderId: createdOrder._id,
         title: '🛍️ Order Placed Successfully',
-        message: `Your order #${createdOrder._id.toString().substring(createdOrder._id.toString().length - 6).toUpperCase()} has been placed successfully.`,
+        message: `Your order #${createdOrder._id.toString().slice(-6).toUpperCase()} has been placed successfully.`,
         type: 'order_status',
         sender: 'system',
         isRead: false
       });
     } catch (notifErr) {
-      console.error('❌ ORDER PLACED NOTIFICATION ERROR:', notifErr);
+      console.error('❌ ORDER PLACED NOTIFICATION ERROR:', notifErr.message);
     }
 
     res.status(201).json({
@@ -167,10 +166,7 @@ const addOrderItems = async (req, res) => {
 // @access  Private
 const getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id).populate(
-      'user',
-      'name email'
-    );
+    const order = await Order.findById(req.params.id).populate('user', 'name email');
 
     if (order) {
       if (order.user._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
@@ -245,6 +241,13 @@ const updateOrderStatus = async (req, res) => {
     const order = await Order.findById(req.params.id);
 
     if (order) {
+      const previousStatus = order.status || '';
+
+      // Prevent duplicate notification if status hasn't changed
+      if (previousStatus.trim().toLowerCase() === status.trim().toLowerCase()) {
+        return res.json({ success: true, order });
+      }
+
       order.status = status;
       if (status === 'Delivered') {
         order.isDelivered = true;
@@ -252,10 +255,7 @@ const updateOrderStatus = async (req, res) => {
       }
 
       const { date, time, updatedAt } = formatDateTime(new Date());
-
-      if (!order.statusHistory) {
-        order.statusHistory = [];
-      }
+      if (!order.statusHistory) order.statusHistory = [];
 
       const existingIdx = order.statusHistory.findIndex(
         h => h.status.toLowerCase() === status.toLowerCase()
@@ -266,39 +266,25 @@ const updateOrderStatus = async (req, res) => {
         order.statusHistory[existingIdx].time = time;
         order.statusHistory[existingIdx].updatedAt = updatedAt;
       } else {
-        order.statusHistory.push({
-          status,
-          date,
-          time,
-          updatedAt
-        });
+        order.statusHistory.push({ status, date, time, updatedAt });
       }
 
       const updatedOrder = await order.save();
 
-      // Create automated status notification for user in MongoDB
+      // In-App Notification in MongoDB
       try {
         const notifContent = getStatusNotificationContent(status, order._id);
-        const existingNotif = await Notification.findOne({
+        await Notification.create({
           userId: order.user,
           orderId: order._id,
-          message: notifContent.message
+          title: notifContent.title,
+          message: notifContent.message,
+          type: 'order_status',
+          sender: 'system',
+          isRead: false
         });
-
-        if (!existingNotif) {
-          await Notification.create({
-            userId: order.user,
-            orderId: order._id,
-            title: notifContent.title,
-            message: notifContent.message,
-            type: 'order_status',
-            sender: 'system',
-            isRead: false
-          });
-          console.log(`✅ NOTIFICATION CREATED FOR USER ${order.user}: ${notifContent.title}`);
-        }
       } catch (notifErr) {
-        console.error('❌ NOTIFICATION CREATION ERROR:', notifErr);
+        console.error('❌ NOTIFICATION CREATION ERROR:', notifErr.message);
       }
 
       res.json({ success: true, order: updatedOrder });
@@ -330,7 +316,7 @@ const cancelOrder = async (req, res) => {
         });
       }
 
-      // Restore product stock when order is cancelled
+      // Restore stock
       if (order.orderItems && order.orderItems.length > 0) {
         for (const item of order.orderItems) {
           const pId = item.product || item.productId || item._id;
@@ -343,16 +329,10 @@ const cancelOrder = async (req, res) => {
 
       const { date, time, updatedAt } = formatDateTime(new Date());
       if (!order.statusHistory) order.statusHistory = [];
-      order.statusHistory.push({
-        status: 'Cancelled',
-        date,
-        time,
-        updatedAt
-      });
+      order.statusHistory.push({ status: 'Cancelled', date, time, updatedAt });
 
       const updatedOrder = await order.save();
 
-      // Send cancellation notification
       try {
         const notifContent = getStatusNotificationContent('Cancelled', order._id);
         await Notification.create({
@@ -365,7 +345,7 @@ const cancelOrder = async (req, res) => {
           isRead: false
         });
       } catch (notifErr) {
-        console.error('❌ CANCEL NOTIFICATION ERROR:', notifErr);
+        console.error('❌ CANCEL NOTIFICATION ERROR:', notifErr.message);
       }
 
       res.json({ success: true, order: updatedOrder });

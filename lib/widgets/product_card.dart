@@ -9,6 +9,9 @@ import '../screens/products/product_details_screen.dart';
 class ProductCard extends StatelessWidget {
   final Product product;
 
+  static const String fallbackImageUrl =
+      'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop';
+
   const ProductCard({super.key, required this.product});
 
   @override
@@ -40,15 +43,24 @@ class ProductCard extends StatelessWidget {
                       width: double.infinity,
                       height: double.infinity,
                       child: Image.network(
-                        product.imageUrl,
+                        product.imageUrl.isNotEmpty ? product.imageUrl : fallbackImageUrl,
                         fit: BoxFit.cover,
                         alignment: Alignment.center,
                         width: double.infinity,
                         height: double.infinity,
                         errorBuilder: (context, error, stackTrace) {
                           debugPrint("IMAGE CARD ERROR (${product.imageUrl}): $error");
-                          return const Center(
-                            child: Icon(Icons.broken_image_outlined, color: AppColors.gold, size: 36),
+                          return Image.network(
+                            fallbackImageUrl,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              color: AppColors.card,
+                              child: const Center(
+                                child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+                              ),
+                            ),
                           );
                         },
                       ),

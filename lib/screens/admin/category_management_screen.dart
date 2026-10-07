@@ -63,11 +63,13 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                   border: Border.all(color: AppColors.goldBorder.withValues(alpha: 0.1)),
                 ),
                 child: ListTile(
-                  leading: Text(
-                    category.name.contains('Shirt') ? '👔' : 
-                    category.name.contains('Pant') ? '👖' : 
-                    category.name.contains('Suit') ? '🤵' : '📂',
-                    style: const TextStyle(fontSize: 24)
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(category.iconData, color: AppColors.gold, size: 24),
                   ),
                   title: Text(
                     category.name,
@@ -102,7 +104,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                           
                           if (token != null) {
                             final success = await provider.deleteCategory(category.id, token);
-                            if (mounted && success) {
+                            if (context.mounted && success) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Category deleted')),
                               );

@@ -7,6 +7,9 @@ import '../providers/user_provider.dart';
 class CartItemCard extends StatelessWidget {
   final CartItemModel item;
 
+  static const String fallbackImageUrl =
+      'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop';
+
   const CartItemCard({super.key, required this.item});
 
   @override
@@ -20,7 +23,7 @@ class CartItemCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppColors.goldBorder.withOpacity(0.1)),
+        border: Border.all(color: AppColors.goldBorder.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
@@ -32,11 +35,20 @@ class CartItemCard extends StatelessWidget {
               width: 80,
               height: 80,
               child: Image.network(
-                item.product.imageUrl,
+                item.product.imageUrl.isNotEmpty ? item.product.imageUrl : fallbackImageUrl,
                 width: 80,
                 height: 80,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: AppColors.gold),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Image.network(
+                  fallbackImageUrl,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: AppColors.card,
+                    child: const Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 30),
+                  ),
+                ),
               ),
             ),
           ),

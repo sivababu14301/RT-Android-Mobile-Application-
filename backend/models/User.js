@@ -64,7 +64,6 @@ const userSchema = new mongoose.Schema({
 
 // Encrypt password and rememberAccess using bcrypt
 userSchema.pre('save', async function() {
-  // Only proceed if password or rememberAccess is modified
   if (!this.isModified('password') && !this.isModified('rememberAccess')) {
     return;
   }

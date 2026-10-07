@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
 import '../../providers/wishlist_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../widgets/wishlist_card.dart';
+import '../../widgets/product_card.dart';
 import '../../widgets/skeleton.dart';
 
 class WishlistScreen extends StatefulWidget {
@@ -49,10 +49,16 @@ class _WishlistScreenState extends State<WishlistScreen> {
       body: Consumer<WishlistProvider>(
         builder: (context, wishlist, child) {
           if (_isLoading) {
-            return ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: 5,
-              itemBuilder: (context, index) => const OrderCardSkeleton(), // Reuse OrderCardSkeleton for wishlist list items
+            return GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.65,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              itemCount: 6,
+              itemBuilder: (context, index) => const OrderCardSkeleton(),
             );
           }
 
@@ -66,7 +72,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
                     Container(
                       padding: const EdgeInsets.all(30),
                       decoration: BoxDecoration(
-                        color: AppColors.gold.withOpacity(0.1),
+                        color: AppColors.gold.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -108,7 +114,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
                           backgroundColor: AppColors.gold,
                           foregroundColor: Colors.black,
                           elevation: 8,
-                          shadowColor: AppColors.gold.withOpacity(0.4),
+                          shadowColor: AppColors.gold.withValues(alpha: 0.4),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -129,11 +135,33 @@ class _WishlistScreenState extends State<WishlistScreen> {
             );
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: wishlist.items.length,
-            itemBuilder: (context, index) {
-              return WishlistCard(product: wishlist.items[index]);
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final double screenWidth = constraints.maxWidth;
+              final double horizontalPadding = 32.0; // 16 left + 16 right
+              final double crossAxisSpacing = 16.0;
+              final double availableWidth = screenWidth - horizontalPadding - crossAxisSpacing;
+              final double cardWidth = availableWidth / 2;
+
+              final double detailsHeight = 68.0;
+              final double imageHeight = cardWidth * 1.25;
+              final double totalCardHeight = imageHeight + detailsHeight;
+              final double dynamicAspectRatio = (cardWidth / totalCardHeight).clamp(0.55, 0.75);
+
+              return GridView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                physics: const BouncingScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: dynamicAspectRatio,
+                  crossAxisSpacing: crossAxisSpacing,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: wishlist.items.length,
+                itemBuilder: (context, index) {
+                  return ProductCard(product: wishlist.items[index]);
+                },
+              );
             },
           );
         },
