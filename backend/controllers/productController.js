@@ -6,44 +6,81 @@ const mongoose = require('mongoose');
 // @access  Private/Admin
 const addProduct = async (req, res) => {
   try {
-    const { name, description, category, price, discountPrice, images, fabric, sizes, colors, stock, isFeatured } = req.body;
-
     console.log("--- ADD PRODUCT ATTEMPT ---");
     console.log("Body:", req.body);
 
-    if (!name || !description || !category || !price || !fabric || stock === undefined) {
+    const {
+      name,
+      description,
+      category,
+      price,
+      discountPrice,
+      images,
+      fabric,
+      fabrics,
+      sizes,
+      colors,
+      stock,
+      isFeatured,
+      allowCustomFit
+    } = req.body;
+
+    if (!name || !description || !category || price === undefined || price === null || !fabric || stock === undefined || stock === null) {
       return res.status(400).json({
         success: false,
         message: 'Please provide all required fields (name, description, category, price, fabric, stock)'
       });
     }
 
-    // Create product with mapped data
+    const numPrice = Number(price);
+    const numStock = Number(stock);
+
+    if (isNaN(numPrice) || numPrice < 0) {
+      return res.status(400).json({ success: false, message: 'Price must be a valid non-negative number' });
+    }
+
+    if (isNaN(numStock) || numStock < 0) {
+      return res.status(400).json({ success: false, message: 'Stock must be a valid non-negative number' });
+    }
+
+    // Process fabrics array or string
+    let parsedFabrics = [];
+    if (Array.isArray(fabrics) && fabrics.length > 0) {
+      parsedFabrics = fabrics;
+    } else if (typeof fabric === 'string' && fabric.trim().length > 0) {
+      parsedFabrics = fabric.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
     const product = new Product({
-      name,
-      description,
-      category,
-      price,
-      discountPrice,
-      images: images || [],
-      fabric,
-      sizes: sizes || [],
-      colors: colors || [],
-      stock,
-      isFeatured: isFeatured === true || isFeatured === 'true'
+      name: String(name).trim(),
+      description: String(description).trim(),
+      category: String(category).trim(),
+      price: numPrice,
+      discountPrice: discountPrice ? Number(discountPrice) : undefined,
+      images: Array.isArray(images) ? images : [],
+      fabric: Array.isArray(parsedFabrics) && parsedFabrics.length > 0 ? parsedFabrics.join(', ') : String(fabric).trim(),
+      fabrics: parsedFabrics,
+      sizes: Array.isArray(sizes) ? sizes : [],
+      colors: Array.isArray(colors) ? colors : [],
+      stock: numStock,
+      isFeatured: isFeatured === true || isFeatured === 'true',
+      allowCustomFit: allowCustomFit === true || allowCustomFit === 'true',
     });
 
     const savedProduct = await product.save();
     console.log('✅ PRODUCT CREATED:', savedProduct.name);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Product added successfully',
       product: savedProduct
     });
   } catch (error) {
     console.error('❌ ADD PRODUCT ERROR:', error);
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to create product on server'
+    });
   }
 };
 
@@ -183,7 +220,7 @@ const uploadProductImages = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ UPLOAD IMAGES ERROR:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message || 'Image upload failed' });
   }
 };
 

@@ -21,11 +21,11 @@ class ProductService {
   }
 
   String _handleError(Response response) {
-    debugPrint("❌ SERVER ERROR: ${response.statusCode}");
+    debugPrint("❌ SERVER ERROR STATUS: ${response.statusCode}");
     debugPrint("❌ DATA CONTENT: ${response.data}");
     
-    if (response.data is Map) {
-      return response.data['message'] ?? 'Server Error: ${response.statusCode}';
+    if (response.data is Map && response.data['message'] != null) {
+      return response.data['message'].toString();
     }
     return 'Server Error: ${response.statusCode}';
   }
@@ -57,8 +57,16 @@ class ProductService {
 
       List<MultipartFile> files = [];
       for (var file in imageFiles) {
+        if (!file.existsSync()) {
+          debugPrint("⚠️ Skipping missing image file: ${file.path}");
+          continue;
+        }
         String fileName = file.path.split('/').last;
         files.add(await MultipartFile.fromFile(file.path, filename: fileName));
+      }
+
+      if (files.isEmpty) {
+        return [];
       }
 
       FormData formData = FormData.fromMap({
@@ -82,6 +90,9 @@ class ProductService {
       }
     } catch (e) {
       debugPrint("❌ UPLOAD EXCEPTION: $e");
+      if (e is DioException && e.response != null) {
+        throw _handleError(e.response!);
+      }
       rethrow;
     }
   }
@@ -105,6 +116,9 @@ class ProductService {
         throw _handleError(response);
       }
     } catch (e) {
+      if (e is DioException && e.response != null) {
+        throw _handleError(e.response!);
+      }
       rethrow;
     }
   }
@@ -128,6 +142,9 @@ class ProductService {
         throw _handleError(response);
       }
     } catch (e) {
+      if (e is DioException && e.response != null) {
+        throw _handleError(e.response!);
+      }
       rethrow;
     }
   }
