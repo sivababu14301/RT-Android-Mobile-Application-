@@ -14,8 +14,42 @@ class ProductImageSlider extends StatefulWidget {
 }
 
 class _ProductImageSliderState extends State<ProductImageSlider> {
-  int _currentIndex = 0;
-  final PageController _pageController = PageController();
+  late PageController _pageController;
+  late ValueNotifier<int> _currentIndexNotifier;
+  bool _isPrecached = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _currentIndexNotifier = ValueNotifier<int>(0);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isPrecached) {
+      _isPrecached = true;
+      _precacheSliderImages();
+    }
+  }
+
+  void _precacheSliderImages() {
+    for (String url in widget.images) {
+      if (url.trim().isNotEmpty) {
+        precacheImage(NetworkImage(url), context).catchError((e) {
+          debugPrint("⚠️ Precache image error: $e");
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _currentIndexNotifier.dispose();
+    super.dispose();
+  }
 
   void _openFullScreenViewer(int initialIndex) {
     Navigator.push(
@@ -31,6 +65,9 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
 
   @override
   Widget build(BuildContext context) {
+    final List<String> displayImages =
+        widget.images.isNotEmpty ? widget.images : [ProductImageSlider.fallbackImageUrl];
+
     return Stack(
       children: [
         // Full black background container displaying complete original image
@@ -40,14 +77,13 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
           color: Colors.black,
           child: PageView.builder(
             controller: _pageController,
+            physics: const BouncingScrollPhysics(),
             onPageChanged: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
+              _currentIndexNotifier.value = index;
             },
-            itemCount: widget.images.isEmpty ? 1 : widget.images.length,
+            itemCount: displayImages.length,
             itemBuilder: (context, index) {
-              final imageUrl = widget.images.isNotEmpty ? widget.images[index] : ProductImageSlider.fallbackImageUrl;
+              final imageUrl = displayImages[index];
               return GestureDetector(
                 onTap: () => _openFullScreenViewer(index),
                 child: Container(
@@ -61,6 +97,7 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                       width: double.infinity,
                       height: double.infinity,
                       fit: BoxFit.contain,
+                      gaplessPlayback: true, // Prevents black flash during page switches
                       alignment: Alignment.center,
                       errorBuilder: (context, error, stackTrace) {
                         return Image.network(
@@ -68,6 +105,7 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                           width: double.infinity,
                           height: double.infinity,
                           fit: BoxFit.contain,
+                          gaplessPlayback: true,
                           errorBuilder: (context, error, stackTrace) => const Center(
                             child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 60),
                           ),
@@ -81,28 +119,34 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
           ),
         ),
         
-        // Page Indicators (floating at the bottom of the image area)
-        if (widget.images.length > 1)
+        // Page Indicators (Only rebuild indicators on swipe)
+        if (displayImages.length > 1)
           Positioned(
             bottom: 12,
             left: 0,
             right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: widget.images.asMap().entries.map((entry) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  width: _currentIndex == entry.key ? 12.0 : 8.0,
-                  height: 8.0,
-                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    color: _currentIndex == entry.key 
-                      ? AppColors.gold 
-                      : AppColors.gold.withValues(alpha: 0.3),
-                  ),
+            child: ValueListenableBuilder<int>(
+              valueListenable: _currentIndexNotifier,
+              builder: (context, currentIndex, child) {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: displayImages.asMap().entries.map((entry) {
+                    final bool isSelected = currentIndex == entry.key;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: isSelected ? 12.0 : 8.0,
+                      height: 8.0,
+                      margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        color: isSelected 
+                          ? AppColors.gold 
+                          : AppColors.gold.withValues(alpha: 0.3),
+                      ),
+                    );
+                  }).toList(),
                 );
-              }).toList(),
+              },
             ),
           ),
       ],
@@ -122,17 +166,27 @@ class _FullScreenImageViewer extends StatefulWidget {
 
 class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
   late PageController _controller;
-  late int _currentIndex;
+  late ValueNotifier<int> _currentIndexNotifier;
 
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex;
     _controller = PageController(initialPage: widget.initialIndex);
+    _currentIndexNotifier = ValueNotifier<int>(widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _currentIndexNotifier.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final List<String> displayImages =
+        widget.images.isNotEmpty ? widget.images : [ProductImageSlider.fallbackImageUrl];
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -142,18 +196,24 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
           icon: const Icon(Icons.close, color: AppColors.gold),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          '${_currentIndex + 1} / ${widget.images.length}',
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+        title: ValueListenableBuilder<int>(
+          valueListenable: _currentIndexNotifier,
+          builder: (context, currentIndex, child) {
+            return Text(
+              '${currentIndex + 1} / ${displayImages.length}',
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+            );
+          },
         ),
         centerTitle: true,
       ),
       body: PageView.builder(
         controller: _controller,
-        onPageChanged: (idx) => setState(() => _currentIndex = idx),
-        itemCount: widget.images.isEmpty ? 1 : widget.images.length,
+        physics: const BouncingScrollPhysics(),
+        onPageChanged: (idx) => _currentIndexNotifier.value = idx,
+        itemCount: displayImages.length,
         itemBuilder: (context, index) {
-          final imageUrl = widget.images.isNotEmpty ? widget.images[index] : ProductImageSlider.fallbackImageUrl;
+          final imageUrl = displayImages[index];
           return InteractiveViewer(
             minScale: 0.5,
             maxScale: 4.0,
@@ -161,8 +221,12 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
               child: Image.network(
                 imageUrl,
                 fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) =>
-                    Image.network(ProductImageSlider.fallbackImageUrl, fit: BoxFit.contain),
+                gaplessPlayback: true,
+                errorBuilder: (context, error, stackTrace) => Image.network(
+                  ProductImageSlider.fallbackImageUrl,
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                ),
               ),
             ),
           );
