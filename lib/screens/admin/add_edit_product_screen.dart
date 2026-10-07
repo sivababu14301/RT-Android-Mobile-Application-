@@ -36,7 +36,10 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   final List<File> _selectedImageFiles = [];
   final ImagePicker _picker = ImagePicker();
 
-  final List<String> _standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+  bool get _isPantCategory => Product.isPantCategory(_selectedCategory);
+
+  List<String> get _standardSizes =>
+      _isPantCategory ? ['32', '34', '36', '38', '40'] : ['S', 'M', 'L', 'XL', 'XXL'];
 
   @override
   void initState() {
@@ -57,7 +60,13 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       if (_selectedFabrics.isEmpty) {
         _selectedFabrics = ['Cotton'];
       }
-      _selectedSizes = List.from(widget.product!.sizes);
+      
+      if (widget.product!.isPantProduct) {
+        _selectedSizes = widget.product!.sizes.map((s) => Product.mapPantSizeToNumeric(s)).toList();
+      } else {
+        _selectedSizes = List.from(widget.product!.sizes);
+      }
+      
       _isFeatured = false;
       _allowCustomFit = widget.product!.allowCustomFit || widget.product!.sizes.contains('Custom Fit');
     }
@@ -156,7 +165,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                   if (token == null) return;
 
                   final fabricName = extraController.text.trim();
-                  Navigator.pop(dialogContext); // Close dialog
+                  Navigator.pop(dialogContext);
 
                   final result = await parentContext.read<FabricProvider>().addFabric(fabricName, token);
 
@@ -167,19 +176,23 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                           _selectedFabrics.add(fabricName);
                         }
                       });
-                      ScaffoldMessenger.of(parentContext).showSnackBar(
-                        SnackBar(
-                          content: Text('Fabric "$fabricName" added to MongoDB and selected!'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
+                      if (parentContext.mounted) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          SnackBar(
+                            content: Text('Fabric "$fabricName" added to MongoDB and selected!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
                     } else {
-                      ScaffoldMessenger.of(parentContext).showSnackBar(
-                        SnackBar(
-                          content: Text(result['message'] ?? 'Failed to add fabric'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
+                      if (parentContext.mounted) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          SnackBar(
+                            content: Text(result['message'] ?? 'Failed to add fabric'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
                     }
                   }
                 }
@@ -236,7 +249,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   }
 
   void _saveProduct() async {
-    if (_isSubmitting) return; // Prevent duplicate requests on multiple taps
+    if (_isSubmitting) return;
 
     if (_nameController.text.trim().isEmpty) {
       _showError('Product name is required');
@@ -291,7 +304,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       List<String> imageUrls = widget.product?.images != null ? List<String>.from(widget.product!.images) : [];
 
       if (_selectedImageFiles.isNotEmpty) {
-        debugPrint("[ADMIN PRODUCT] Uploading images to Cloudinary/Render...");
+        debugPrint("[ADMIN PRODUCT] Uploading images...");
         final newUrls = await productProvider.uploadImages(_selectedImageFiles, token);
         imageUrls.addAll(newUrls);
       }
@@ -410,7 +423,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                                 int existingCount = widget.product?.images.length ?? 0;
                                 if (index < existingCount) {
                                   String url = widget.product!.images[index];
-                                  final fullUrl = url.startsWith('http') ? url : 'http://10.0.2.2:5000$url';
+                                  final fullUrl = Product.formatImageUrl(url);
                                   return _buildImagePreview(
                                     Image.network(fullUrl, fit: BoxFit.contain),
                                     () {
@@ -481,7 +494,15 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                       }).toList(),
                       onChanged: _isSubmitting ? null : (newValue) {
                         if (newValue != null) {
-                          setState(() => _selectedCategory = newValue);
+                          setState(() {
+                            _selectedCategory = newValue;
+                            // Automatically convert selected sizes when switching to/from Pant category
+                            if (Product.isPantCategory(newValue)) {
+                              _selectedSizes = _selectedSizes.map((s) => Product.mapPantSizeToNumeric(s)).toList();
+                            } else {
+                              _selectedSizes = _selectedSizes.map((s) => Product.mapNumericToPantLetter(s)).toList();
+                            }
+                          });
                         }
                       },
                     ),
@@ -501,7 +522,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
             _buildAdminTextField(_descController, 'Description', Icons.description_outlined, maxLines: 4),
 
             // --- SIZE SELECTION ---
-            _buildSectionLabel('Select Size'),
+            _buildSectionLabel(_isPantCategory ? 'Select Pant Size (Waist in Inches)' : 'Select Size'),
             const SizedBox(height: 10),
             Wrap(
               spacing: 12,

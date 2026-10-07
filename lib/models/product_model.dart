@@ -46,6 +46,58 @@ class Product {
     return false;
   }
 
+  /// Check if a category is a Pant product
+  bool get isPantProduct => isPantCategory(category);
+
+  static bool isPantCategory(String catName) {
+    final clean = catName.trim().toLowerCase();
+    return clean.contains('pant') || clean.contains('trouser') || clean.contains('paint');
+  }
+
+  /// Map Pant letter sizes (S, M, L, XL, XXL) to numeric waist sizes (32, 34, 36, 38, 40)
+  static String mapPantSizeToNumeric(String size) {
+    final clean = size.trim().toUpperCase();
+    switch (clean) {
+      case 'S':
+        return '32';
+      case 'M':
+        return '34';
+      case 'L':
+        return '36';
+      case 'XL':
+        return '38';
+      case 'XXL':
+        return '40';
+      default:
+        return size.trim();
+    }
+  }
+
+  /// Map numeric waist sizes back to letter sizes if needed
+  static String mapNumericToPantLetter(String numericSize) {
+    final clean = numericSize.trim();
+    switch (clean) {
+      case '32':
+        return 'S';
+      case '34':
+        return 'M';
+      case '36':
+        return 'L';
+      case '38':
+        return 'XL';
+      case '40':
+        return 'XXL';
+      default:
+        return numericSize.trim();
+    }
+  }
+
+  /// Returns sizes with Pant legacy letter sizes automatically mapped to numeric waist numbers
+  List<String> get displaySizes {
+    if (!isPantProduct) return sizes;
+    return sizes.map((s) => mapPantSizeToNumeric(s)).toList();
+  }
+
   static String get baseServerUrl => ApiConfig.baseServerUrl;
 
   static String formatImageUrl(String path) {

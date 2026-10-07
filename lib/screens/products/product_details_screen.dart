@@ -59,7 +59,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.product.sizes.isNotEmpty) _selectedSize = widget.product.sizes[0];
+    final List<String> sizes = widget.product.displaySizes;
+    if (sizes.isNotEmpty) _selectedSize = sizes[0];
     if (widget.product.colors.isNotEmpty) _selectedColor = widget.product.colors[0];
     if (_productFabrics.isNotEmpty) _selectedFabric = _productFabrics[0];
     
@@ -508,6 +509,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _buildSizeSelector() {
+    final List<String> availableSizes = widget.product.displaySizes;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -515,9 +518,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           height: 55,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: widget.product.sizes.length,
+            itemCount: availableSizes.length,
             itemBuilder: (context, index) {
-              String size = widget.product.sizes[index];
+              String size = availableSizes[index];
               bool isSelected = _selectedSize == size;
               return GestureDetector(
                 onTap: () => setState(() => _selectedSize = size),
