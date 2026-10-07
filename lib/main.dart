@@ -20,9 +20,18 @@ import 'providers/admin/admin_report_provider.dart';
 import 'providers/customer_nav_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/fabric_provider.dart';
+import 'services/local_notification_service.dart';
 
-void main() {
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Local Notifications Service
+  final localNotifService = LocalNotificationService.instance;
+  localNotifService.setNavigatorKey(navigatorKey);
+  await localNotifService.initialize();
+
   runApp(
     MultiProvider(
       providers: [
@@ -57,6 +66,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Raymaans Tailors',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

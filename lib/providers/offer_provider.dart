@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/offer_model.dart';
 import '../services/offer_service.dart';
+import '../services/local_notification_service.dart';
 
 class OfferProvider with ChangeNotifier {
   final OfferService _offerService = OfferService();
@@ -20,6 +21,8 @@ class OfferProvider with ChangeNotifier {
     notifyListeners();
     try {
       _offers = await _offerService.getOffers();
+      // Check for new unseen offers and trigger local notification
+      LocalNotificationService.instance.checkAndNotifyNewOffers(_offers);
     } catch (e) {
       debugPrint('OfferProvider Error: $e');
     } finally {
