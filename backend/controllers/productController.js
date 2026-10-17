@@ -1,5 +1,6 @@
 const Product = require('../models/Product');
 const mongoose = require('mongoose');
+const { uploadFileToCloudinary, deleteImageFromCloudinary } = require('../services/cloudinaryService');
 
 // @desc    Add a new product
 // @route   POST /api/products
@@ -187,6 +188,15 @@ const deleteProduct = async (req, res) => {
     const product = await Product.findById(req.params.id);
 
     if (product) {
+      // Safely delete Cloudinary images associated with this product
+      if (Array.isArray(product.images) && product.images.length > 0) {
+        for (const imgUrl of product.images) {
+          if (imgUrl && typeof imgUrl === 'string' && imgUrl.includes('cloudinary.com')) {
+            await deleteImageFromCloudinary(imgUrl);
+          }
+        }
+      }
+
       await Product.findByIdAndDelete(req.params.id);
       res.status(200).json({ success: true, message: 'Product deleted successfully' });
     } else {
@@ -200,7 +210,7 @@ const deleteProduct = async (req, res) => {
   }
 };
 
-// @desc    Upload multiple product images
+// @desc    Upload multiple product images to Cloudinary
 // @route   POST /api/products/upload
 // @access  Private/Admin
 const uploadProductImages = async (req, res) => {
@@ -210,13 +220,20 @@ const uploadProductImages = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please upload images' });
     }
 
-    const filePaths = req.files.map(file => `/uploads/${file.filename}`);
-    console.log("Uploaded Files:", filePaths);
+    const uploadedImageUrls = [];
+    for (const file of req.files) {
+      const uploadResult = await uploadFileToCloudinary(file.path, 'rt_products');
+      if (uploadResult && uploadResult.url) {
+        uploadedImageUrls.push(uploadResult.url);
+      }
+    }
+
+    console.log("Uploaded Image URLs:", uploadedImageUrls);
 
     res.status(200).json({
       success: true,
       message: 'Images uploaded successfully',
-      images: filePaths
+      images: uploadedImageUrls
     });
   } catch (error) {
     console.error('❌ UPLOAD IMAGES ERROR:', error);
