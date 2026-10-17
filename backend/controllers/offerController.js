@@ -1,4 +1,6 @@
 const Offer = require('../models/Offer');
+const User = require('../models/User');
+const Notification = require('../models/Notification');
 
 // @desc    Add a new offer
 // @route   POST /api/offers
@@ -39,6 +41,31 @@ const addOffer = async (req, res) => {
     });
 
     const savedOffer = await offer.save();
+
+    // Create in-app MongoDB notifications for all customer users
+    try {
+      const customers = await User.find({ role: 'customer' }).select('_id');
+      if (customers.length > 0) {
+        const offerMessage = discount
+          ? `🎉 New Exclusive Offer: ${title} (${discount} OFF)!`
+          : `🎉 New Exclusive Offer: ${title}! Check out our latest deals.`;
+
+        const notifs = customers.map(c => ({
+          userId: c._id,
+          title: 'Raymaans Tailors',
+          message: offerMessage,
+          type: 'offer',
+          sender: 'admin',
+          isRead: false
+        }));
+
+        await Notification.insertMany(notifs);
+        console.log(`✅ Offer in-app notifications created for ${customers.length} customers.`);
+      }
+    } catch (notifError) {
+      console.warn('⚠️ Could not create in-app offer notifications:', notifError.message);
+    }
+
     res.status(201).json({ success: true, offer: savedOffer });
   } catch (error) {
     console.error('❌ ADD OFFER ERROR:', error);

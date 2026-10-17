@@ -10,7 +10,8 @@ const {
   updateProduct,
   updateStock,
   deleteProduct,
-  uploadProductImages
+  uploadProductImages,
+  migrateLegacyImages
 } = require('../controllers/productController');
 const {
   getProductReviews,
@@ -67,6 +68,9 @@ router.get('/:id', getProductById);
 
 // Authenticated image upload for Product / Review images
 router.post('/upload', protect, safeUploadMiddleware, uploadProductImages);
+
+// Admin migration for legacy product image URLs
+router.post('/migrate-legacy-images', protect, admin, migrateLegacyImages);
 
 // Admin only routes
 router.post('/', protect, admin, addProduct);

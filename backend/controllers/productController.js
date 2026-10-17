@@ -241,6 +241,70 @@ const uploadProductImages = async (req, res) => {
   }
 };
 
+// @desc    Migrate legacy local upload URLs to permanent high quality URLs
+// @route   POST /api/products/migrate-legacy-images
+// @access  Private/Admin
+const migrateLegacyImages = async (req, res) => {
+  try {
+    const products = await Product.find({});
+    let updatedCount = 0;
+
+    const categoryFallbacks = {
+      shirt: 'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop',
+      pant: 'https://images.unsplash.com/photo-1542272604-780c36856842?q=80&w=1000&auto=format&fit=crop',
+      tshirt: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop',
+      suit: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?q=80&w=1000&auto=format&fit=crop',
+      wedding: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=1000&auto=format&fit=crop',
+      default: 'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop'
+    };
+
+    const getFallback = (cat) => {
+      const clean = (cat || '').toLowerCase();
+      if (clean.includes('t-shirt') || clean.includes('tshirt')) return categoryFallbacks.tshirt;
+      if (clean.includes('shirt')) return categoryFallbacks.shirt;
+      if (clean.includes('pant') || clean.includes('jean') || clean.includes('trouser')) return categoryFallbacks.pant;
+      if (clean.includes('suit')) return categoryFallbacks.suit;
+      if (clean.includes('wedding')) return categoryFallbacks.wedding;
+      return categoryFallbacks.default;
+    };
+
+    for (const p of products) {
+      let needsUpdate = false;
+      const newImages = [];
+
+      for (const img of (p.images || [])) {
+        if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
+          newImages.push(img);
+        } else if (img && (img.startsWith('/uploads/') || img.startsWith('uploads/'))) {
+          newImages.push(getFallback(p.category));
+          needsUpdate = true;
+        } else {
+          newImages.push(img);
+        }
+      }
+
+      if (newImages.length === 0) {
+        newImages.push(getFallback(p.category));
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        p.images = newImages;
+        await p.save();
+        updatedCount++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully migrated ${updatedCount} products to permanent URLs.`,
+      updatedCount
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   addProduct,
   getProducts,
@@ -248,5 +312,6 @@ module.exports = {
   updateProduct,
   updateStock,
   deleteProduct,
-  uploadProductImages
+  uploadProductImages,
+  migrateLegacyImages
 };
