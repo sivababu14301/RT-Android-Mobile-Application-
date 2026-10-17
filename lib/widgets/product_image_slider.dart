@@ -1,13 +1,52 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../config/app_colors.dart';
 
 class ProductImageSlider extends StatefulWidget {
   final List<String> images;
 
-  static const String fallbackImageUrl =
-      'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop';
-
   const ProductImageSlider({super.key, required this.images});
+
+  static Widget buildSingleImage(String url, {BoxFit fit = BoxFit.contain}) {
+    final clean = url.trim();
+    if (clean.isEmpty) {
+      return const Center(
+        child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 60),
+      );
+    }
+
+    if (clean.startsWith('data:image/')) {
+      try {
+        final base64Str = clean.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          width: double.infinity,
+          height: double.infinity,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) => const Center(
+            child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 60),
+          ),
+        );
+      } catch (e) {
+        return const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 60),
+        );
+      }
+    }
+
+    return Image.network(
+      clean,
+      width: double.infinity,
+      height: double.infinity,
+      fit: fit,
+      gaplessPlayback: true,
+      alignment: Alignment.center,
+      errorBuilder: (context, error, stackTrace) => const Center(
+        child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 60),
+      ),
+    );
+  }
 
   @override
   State<ProductImageSlider> createState() => _ProductImageSliderState();
@@ -36,9 +75,20 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
 
   void _precacheSliderImages() {
     for (String url in widget.images) {
-      if (url.trim().isNotEmpty) {
-        precacheImage(NetworkImage(url), context).catchError((e) {
-          debugPrint("⚠️ Precache image error: $e");
+      final clean = url.trim();
+      if (clean.isEmpty) continue;
+
+      if (clean.startsWith('data:image/')) {
+        try {
+          final base64Str = clean.split(',').last;
+          final bytes = base64Decode(base64Str);
+          precacheImage(MemoryImage(bytes), context).catchError((e) {
+            debugPrint("⚠️ Precache memory image error: $e");
+          });
+        } catch (_) {}
+      } else if (clean.startsWith('http')) {
+        precacheImage(NetworkImage(clean), context).catchError((e) {
+          debugPrint("⚠️ Precache network image error: $e");
         });
       }
     }
@@ -66,11 +116,21 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
   @override
   Widget build(BuildContext context) {
     final List<String> displayImages =
-        widget.images.isNotEmpty ? widget.images : [ProductImageSlider.fallbackImageUrl];
+        widget.images.where((img) => img.trim().isNotEmpty).toList();
+
+    if (displayImages.isEmpty) {
+      return Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.black,
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 80),
+        ),
+      );
+    }
 
     return Stack(
       children: [
-        // Full black background container displaying complete original image
         Container(
           width: double.infinity,
           height: double.infinity,
@@ -92,26 +152,7 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
                   color: Colors.black,
                   padding: const EdgeInsets.only(top: kToolbarHeight, bottom: 24, left: 8, right: 8),
                   child: Center(
-                    child: Image.network(
-                      imageUrl,
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.contain,
-                      gaplessPlayback: true, // Prevents black flash during page switches
-                      alignment: Alignment.center,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Image.network(
-                          ProductImageSlider.fallbackImageUrl,
-                          width: double.infinity,
-                          height: double.infinity,
-                          fit: BoxFit.contain,
-                          gaplessPlayback: true,
-                          errorBuilder: (context, error, stackTrace) => const Center(
-                            child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 60),
-                          ),
-                        );
-                      },
-                    ),
+                    child: ProductImageSlider.buildSingleImage(imageUrl, fit: BoxFit.contain),
                   ),
                 ),
               );
@@ -119,7 +160,6 @@ class _ProductImageSliderState extends State<ProductImageSlider> {
           ),
         ),
         
-        // Page Indicators (Only rebuild indicators on swipe)
         if (displayImages.length > 1)
           Positioned(
             bottom: 12,
@@ -185,7 +225,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
   @override
   Widget build(BuildContext context) {
     final List<String> displayImages =
-        widget.images.isNotEmpty ? widget.images : [ProductImageSlider.fallbackImageUrl];
+        widget.images.where((img) => img.trim().isNotEmpty).toList();
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -200,7 +240,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
           valueListenable: _currentIndexNotifier,
           builder: (context, currentIndex, child) {
             return Text(
-              '${currentIndex + 1} / ${displayImages.length}',
+              displayImages.isNotEmpty ? '${currentIndex + 1} / ${displayImages.length}' : '0 / 0',
               style: const TextStyle(color: Colors.white, fontSize: 16),
             );
           },
@@ -218,16 +258,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
             minScale: 0.5,
             maxScale: 4.0,
             child: Center(
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.contain,
-                gaplessPlayback: true,
-                errorBuilder: (context, error, stackTrace) => Image.network(
-                  ProductImageSlider.fallbackImageUrl,
-                  fit: BoxFit.contain,
-                  gaplessPlayback: true,
-                ),
-              ),
+              child: ProductImageSlider.buildSingleImage(imageUrl, fit: BoxFit.contain),
             ),
           );
         },

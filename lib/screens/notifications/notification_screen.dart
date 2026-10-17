@@ -113,7 +113,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: item.isRead ? Colors.transparent : AppColors.gold.withOpacity(0.2),
+          color: item.isRead ? Colors.transparent : AppColors.gold.withValues(alpha: 0.2),
         ),
       ),
       child: ListTile(
@@ -121,7 +121,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: AppColors.gold.withOpacity(0.1),
+            color: AppColors.gold.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(item.getIcon, color: AppColors.gold, size: 24),
@@ -158,7 +158,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             Text(
               DateFormat('dd MMM yyyy, hh:mm a').format(item.createdAt),
               style: TextStyle(
-                color: AppColors.grey.withOpacity(0.6),
+                color: AppColors.grey.withValues(alpha: 0.6),
                 fontSize: 12,
               ),
             ),

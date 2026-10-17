@@ -306,6 +306,11 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       if (_selectedImageFiles.isNotEmpty) {
         debugPrint("[ADMIN PRODUCT] Uploading images...");
         final newUrls = await productProvider.uploadImages(_selectedImageFiles, token);
+        if (newUrls.isEmpty) {
+          _showError('Failed to upload image. Please try again.');
+          setState(() => _isSubmitting = false);
+          return;
+        }
         imageUrls.addAll(newUrls);
       }
 

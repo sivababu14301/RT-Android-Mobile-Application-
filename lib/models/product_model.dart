@@ -38,15 +38,14 @@ class Product {
   bool get isCustomFitAvailable {
     final cat = category.toLowerCase().trim();
     if (cat.contains('t-shirt') || cat.contains('tshirt')) {
-      return false; // T-Shirts NEVER have Custom Fit
+      return false;
     }
     if (cat == 'shirt' || cat == 'shirts' || cat == 'pant' || cat == 'pants') {
-      return true; // Only Shirts and Pants have Custom Fit
+      return true;
     }
     return false;
   }
 
-  /// Check if a category is a Pant product
   bool get isPantProduct => isPantCategory(category);
 
   static bool isPantCategory(String catName) {
@@ -54,7 +53,6 @@ class Product {
     return clean.contains('pant') || clean.contains('trouser') || clean.contains('paint');
   }
 
-  /// Map Pant letter sizes (S, M, L, XL, XXL) to numeric waist sizes (32, 34, 36, 38, 40)
   static String mapPantSizeToNumeric(String size) {
     final clean = size.trim().toUpperCase();
     switch (clean) {
@@ -73,7 +71,6 @@ class Product {
     }
   }
 
-  /// Map numeric waist sizes back to letter sizes if needed
   static String mapNumericToPantLetter(String numericSize) {
     final clean = numericSize.trim();
     switch (clean) {
@@ -92,7 +89,6 @@ class Product {
     }
   }
 
-  /// Returns sizes with Pant legacy letter sizes automatically mapped to numeric waist numbers
   List<String> get displaySizes {
     if (!isPantProduct) return sizes;
     return sizes.map((s) => mapPantSizeToNumeric(s)).toList();
@@ -101,10 +97,11 @@ class Product {
   static String get baseServerUrl => ApiConfig.baseServerUrl;
 
   static String formatImageUrl(String path) {
-    if (path.trim().isEmpty) return '';
+    if (path.trim().isEmpty) {
+      return '';
+    }
     String cleanPath = path.replaceAll('\\', '/').trim();
 
-    // Convert local dev addresses (localhost, 10.0.2.2, wifi IP) to production server URL
     cleanPath = cleanPath
         .replaceAll('http://localhost:5000', ApiConfig.baseServerUrl)
         .replaceAll('https://localhost:5000', ApiConfig.baseServerUrl)
@@ -115,7 +112,6 @@ class Product {
         .replaceAll('http://10.69.215.137:5000', ApiConfig.baseServerUrl)
         .replaceAll('https://10.69.215.137:5000', ApiConfig.baseServerUrl);
 
-    // Prevent double /api/ in uploads path
     cleanPath = cleanPath.replaceAll('/api/uploads/', '/uploads/');
 
     if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
@@ -133,14 +129,23 @@ class Product {
     return '${ApiConfig.baseServerUrl}${cleanPath.startsWith('/') ? '' : '/'}$cleanPath';
   }
 
+  bool get hasImages => images.isNotEmpty && images.any((img) => img.trim().isNotEmpty);
+
   String get imageUrl {
-    if (images.isEmpty) return '';
-    return formatImageUrl(images[0]);
+    if (!hasImages) {
+      return '';
+    }
+    return formatImageUrl(images.firstWhere((img) => img.trim().isNotEmpty, orElse: () => ''));
   }
 
   List<String> get fullImageUrls {
-    if (images.isEmpty) return [];
-    return images.map((path) => formatImageUrl(path)).toList();
+    if (!hasImages) {
+      return [];
+    }
+    return images
+        .map((path) => formatImageUrl(path))
+        .where((url) => url.isNotEmpty)
+        .toList();
   }
 
   String get formattedPrice => '₹${price.toInt()}';
@@ -156,8 +161,23 @@ class Product {
 
     final List<String> parsedSizes = List<String>.from(json['sizes'] ?? []);
 
+    final List<String> parsedImages = [];
+    if (json['images'] != null && json['images'] is List) {
+      for (var item in json['images']) {
+        if (item != null && item.toString().trim().isNotEmpty) {
+          parsedImages.add(item.toString().trim());
+        }
+      }
+    } else if (json['image'] != null && json['image'].toString().trim().isNotEmpty) {
+      parsedImages.add(json['image'].toString().trim());
+    } else if (json['imageUrl'] != null && json['imageUrl'].toString().trim().isNotEmpty) {
+      parsedImages.add(json['imageUrl'].toString().trim());
+    } else if (json['productImage'] != null && json['productImage'].toString().trim().isNotEmpty) {
+      parsedImages.add(json['productImage'].toString().trim());
+    }
+
     return Product(
-      id: json['_id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '',
       name: json['name'] ?? '',
       category: json['category'] ?? '',
       description: json['description'] ?? '',
@@ -167,9 +187,7 @@ class Product {
       stock: json['stock'] ?? 0,
       rating: (json['rating'] ?? 0).toDouble(),
       reviewCount: json['reviewCount'] ?? 0,
-      images: json['images'] != null 
-          ? List<String>.from(json['images']) 
-          : (json['image'] != null && json['image'] != '' ? [json['image']] : []),
+      images: parsedImages,
       sizes: parsedSizes,
       colors: json['colors'] != null 
           ? List<String>.from(json['colors']) 

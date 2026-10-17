@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
@@ -77,6 +78,57 @@ class _AdminProductListScreenState extends State<AdminProductListScreen> {
             child: const Text('DELETE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAdminImageWidget(String url) {
+    if (url.trim().isEmpty) {
+      return Container(
+        width: 80,
+        height: 80,
+        color: AppColors.card,
+        child: const Icon(Icons.checkroom_outlined, color: AppColors.gold),
+      );
+    }
+
+    if (url.startsWith('data:image/')) {
+      try {
+        final base64Str = url.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: 80,
+            height: 80,
+            color: AppColors.card,
+            child: const Icon(Icons.checkroom_outlined, color: AppColors.gold),
+          ),
+        );
+      } catch (e) {
+        return Container(
+          width: 80,
+          height: 80,
+          color: AppColors.card,
+          child: const Icon(Icons.checkroom_outlined, color: AppColors.gold),
+        );
+      }
+    }
+
+    return Image.network(
+      url,
+      width: 80,
+      height: 80,
+      fit: BoxFit.cover,
+      alignment: Alignment.center,
+      errorBuilder: (context, error, stackTrace) => Container(
+        width: 80,
+        height: 80,
+        color: AppColors.card,
+        child: const Icon(Icons.checkroom_outlined, color: AppColors.gold),
       ),
     );
   }
@@ -204,25 +256,14 @@ class _AdminProductListScreenState extends State<AdminProductListScreen> {
                 color: Colors.black,
                 width: 80,
                 height: 80,
-                child: Image.network(
-                  product.imageUrl.isNotEmpty ? product.imageUrl : 'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop',
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  errorBuilder: (context, error, stackTrace) => Image.network(
-                    'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop',
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      width: 80,
-                      height: 80,
-                      color: AppColors.card,
-                      child: const Icon(Icons.checkroom_outlined, color: AppColors.gold),
-                    ),
-                  ),
-                ),
+                child: product.hasImages
+                    ? _buildAdminImageWidget(product.imageUrl)
+                    : Container(
+                        width: 80,
+                        height: 80,
+                        color: AppColors.card,
+                        child: const Icon(Icons.checkroom_outlined, color: AppColors.gold),
+                      ),
               ),
             ),
             const SizedBox(width: 16),

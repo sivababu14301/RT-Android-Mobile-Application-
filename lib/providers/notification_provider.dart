@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/notification_model.dart';
 import '../services/notification_service.dart';
+import '../services/local_notification_service.dart';
 
 class NotificationProvider with ChangeNotifier {
   final NotificationService _service = NotificationService();
@@ -19,6 +20,9 @@ class NotificationProvider with ChangeNotifier {
     try {
       _notifications = await _service.getNotifications(token);
       _unreadCount = await _service.getUnreadCount(token);
+
+      // Trigger local Android system notifications for unread/unseen MongoDB notifications
+      LocalNotificationService.instance.checkAndNotifyInAppNotifications(_notifications);
     } catch (e) {
       debugPrint('Error in NotificationProvider: $e');
     } finally {
@@ -35,8 +39,10 @@ class NotificationProvider with ChangeNotifier {
         _notifications[index] = NotificationModel(
           id: _notifications[index].id,
           userId: _notifications[index].userId,
+          orderId: _notifications[index].orderId,
           title: _notifications[index].title,
           message: _notifications[index].message,
+          type: _notifications[index].type,
           sender: _notifications[index].sender,
           isRead: true,
           createdAt: _notifications[index].createdAt,

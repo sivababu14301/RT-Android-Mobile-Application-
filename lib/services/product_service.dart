@@ -55,23 +55,28 @@ class ProductService {
       const uploadUrl = 'products/upload';
       debugPrint("🚀 UPLOADING IMAGES TO: $_baseUrl$uploadUrl");
 
-      List<MultipartFile> files = [];
+      final formData = FormData();
       for (var file in imageFiles) {
         if (!file.existsSync()) {
           debugPrint("⚠️ Skipping missing image file: ${file.path}");
           continue;
         }
         String fileName = file.path.split('/').last;
-        files.add(await MultipartFile.fromFile(file.path, filename: fileName));
+        formData.files.add(
+          MapEntry(
+            "images",
+            await MultipartFile.fromFile(
+              file.path,
+              filename: fileName,
+            ),
+          ),
+        );
       }
 
-      if (files.isEmpty) {
+      if (formData.files.isEmpty) {
+        debugPrint("⚠️ No valid image files to upload.");
         return [];
       }
-
-      FormData formData = FormData.fromMap({
-        "images": files,
-      });
 
       final response = await _dio.post(
         uploadUrl,
@@ -83,8 +88,13 @@ class ProductService {
         ),
       );
 
+      debugPrint("📸 UPLOAD RESPONSE STATUS: ${response.statusCode}");
+      debugPrint("📸 UPLOAD RESPONSE DATA: ${response.data}");
+
       if (response.statusCode == 200 && response.data is Map && response.data['success'] == true) {
-        return List<String>.from(response.data['images']);
+        final List<String> urls = List<String>.from(response.data['images'] ?? []);
+        debugPrint("✅ RECEIVED UPLOADED IMAGE URLS: $urls");
+        return urls;
       } else {
         throw _handleError(response);
       }
