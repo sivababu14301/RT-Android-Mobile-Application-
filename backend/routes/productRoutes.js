@@ -46,15 +46,18 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit per image
 });
 
-// Safe Multer upload middleware wrapper
+// Safe Multer upload middleware wrapper using upload.any() for full field compatibility
 const safeUploadMiddleware = (req, res, next) => {
-  upload.array('images', 10)(req, res, (err) => {
+  upload.any()(req, res, (err) => {
     if (err) {
       console.error('❌ MULTER UPLOAD ERROR:', err);
       return res.status(400).json({
         success: false,
         message: err.message || 'Image upload failed'
       });
+    }
+    if (!req.files && req.file) {
+      req.files = [req.file];
     }
     next();
   });
