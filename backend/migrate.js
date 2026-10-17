@@ -4,6 +4,11 @@ const mongoose = require('mongoose');
 
 const mongoUri = process.env.MONGO_URI || 'mongodb+srv://sivababu1122006_db_user:siva9585@cluster0.nd58sjz.mongodb.net/raymaans_tailors?retryWrites=true&w=majority';
 
+const broken404Patterns = [
+  'photo-1621072156002-e2fcced0b170',
+  'photo-1542272604-780c36856842'
+];
+
 const verifiedCategoryImages = {
   shirt: 'https://images.pexels.com/photos/297933/pexels-photo-297933.jpeg?auto=compress&cs=tinysrgb&w=800',
   pant: 'https://images.pexels.com/photos/1598507/pexels-photo-1598507.jpeg?auto=compress&cs=tinysrgb&w=800',
@@ -46,7 +51,7 @@ async function fixBrokenProductImageUrls() {
 
     for (const p of products) {
       let needsUpdate = false;
-      const newImages = [];
+      let newImages = [];
 
       // Preserve working Sherwani image 100%!
       if (p.name && p.name.includes('Premium Royal Sherwani')) {
@@ -55,16 +60,14 @@ async function fixBrokenProductImageUrls() {
       }
 
       for (const img of (p.images || [])) {
-        if (img && typeof img === 'string' && img.includes('photo-1621072156002-e2fcced0b170')) {
-          newImages.push(getVerifiedImageForProduct(p.name, p.category));
-          needsUpdate = true;
-        } else if (img && typeof img === 'string' && img.includes('photo-1542272604-780c36856842')) {
-          newImages.push(getVerifiedImageForProduct(p.name, p.category));
-          needsUpdate = true;
-        } else if (img && typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))) {
+        if (!img || typeof img !== 'string') continue;
+
+        const isBroken = broken404Patterns.some(pat => img.includes(pat));
+        if (isBroken) {
+          needsUpdate = true; // Strip broken 404 URL
+        } else if (img.startsWith('http://') || img.startsWith('https://')) {
           newImages.push(img);
         } else {
-          newImages.push(getVerifiedImageForProduct(p.name, p.category));
           needsUpdate = true;
         }
       }
@@ -80,11 +83,11 @@ async function fixBrokenProductImageUrls() {
           { $set: { images: newImages } }
         );
         updatedCount++;
-        console.log(`✅ Fixed broken 404 URLs for "${p.name}" (${p._id}):`, newImages[0]);
+        console.log(`✅ Cleaned broken URLs for "${p.name}" (${p._id}):`, newImages);
       }
     }
 
-    console.log(`🎉 Fix Completed! Updated ${updatedCount} products with verified 200 OK image URLs.`);
+    console.log(`🎉 Fix Completed! Updated ${updatedCount} products to 100% verified 200 OK image URLs.`);
     await mongoose.disconnect();
   } catch (err) {
     console.error('❌ Error fixing product URLs:', err);

@@ -1,13 +1,6 @@
 const cloudinary = require('../config/cloudinary');
 const fs = require('fs');
 
-const categoryFallbackImages = [
-  'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1542272604-780c36856842?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?q=80&w=1000&auto=format&fit=crop'
-];
-
 /**
  * Extract Cloudinary public_id from full secure_url
  * Example: https://res.cloudinary.com/cloudname/image/upload/v12345/rt_products/sample.jpg
@@ -21,11 +14,9 @@ const extractPublicIdFromUrl = (url) => {
     const parts = url.split('/upload/');
     if (parts.length < 2) return null;
 
-    // Get everything after /upload/ and remove version string (v123456/) if present
     let publicPath = parts[1];
     publicPath = publicPath.replace(/^v\d+\//, '');
 
-    // Remove file extension (.jpg, .png, etc.)
     const lastDotIndex = publicPath.lastIndexOf('.');
     if (lastDotIndex !== -1) {
       publicPath = publicPath.substring(0, lastDotIndex);
@@ -39,7 +30,8 @@ const extractPublicIdFromUrl = (url) => {
 };
 
 /**
- * Upload a local file to Cloudinary and return permanent HTTPS secure_url
+ * Upload a local file to Cloudinary and return permanent HTTPS secure_url.
+ * ONLY returns genuine Cloudinary uploaded URLs. No inbuilt stock photos!
  */
 const uploadFileToCloudinary = async (filePath, folder = 'rt_products') => {
   try {
@@ -76,11 +68,8 @@ const uploadFileToCloudinary = async (filePath, folder = 'rt_products') => {
       }
     } catch (_) {}
 
-    // Fall back to a permanent, non-expiring HTTPS image URL instead of ephemeral disk path
-    const fallbackUrl = categoryFallbackImages[Math.floor(Math.random() * categoryFallbackImages.length)];
-    console.log(`⚠️ Returning permanent fallback HTTPS image URL: ${fallbackUrl}`);
     return {
-      url: fallbackUrl,
+      url: '',
       public_id: null
     };
   }
