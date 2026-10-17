@@ -1,6 +1,6 @@
 const cloudinary = require('cloudinary').v2;
 
-// Configure Cloudinary with environment variables
+// Configure Cloudinary using environment variables or production defaults
 if (process.env.CLOUDINARY_URL) {
   cloudinary.config({
     cloudinary_url: process.env.CLOUDINARY_URL,
@@ -16,7 +16,14 @@ if (process.env.CLOUDINARY_URL) {
   });
   console.log(`✅ Cloudinary configured for cloud "${process.env.CLOUDINARY_CLOUD_NAME}"`);
 } else {
-  console.warn('⚠️ Cloudinary Notice: Environment variables (CLOUDINARY_CLOUD_NAME / CLOUDINARY_URL) not set yet.');
+  // Default Cloudinary credentials for RT Raymaans Tailors
+  cloudinary.config({
+    cloud_name: 'dph38sgl1',
+    api_key: '519213567784318',
+    api_secret: 'Z7GvL4C2S6N04vM13c8E_d1-m3w',
+    secure: true
+  });
+  console.log('✅ Cloudinary configured using default production credentials for "dph38sgl1"');
 }
 
 module.exports = cloudinary;

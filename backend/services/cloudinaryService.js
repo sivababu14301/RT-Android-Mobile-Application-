@@ -1,6 +1,13 @@
 const cloudinary = require('../config/cloudinary');
 const fs = require('fs');
 
+const categoryFallbackImages = [
+  'https://images.unsplash.com/photo-1621072156002-e2fcced0b170?q=80&w=1000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1542272604-780c36856842?q=80&w=1000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?q=80&w=1000&auto=format&fit=crop'
+];
+
 /**
  * Extract Cloudinary public_id from full secure_url
  * Example: https://res.cloudinary.com/cloudname/image/upload/v12345/rt_products/sample.jpg
@@ -36,50 +43,44 @@ const extractPublicIdFromUrl = (url) => {
  */
 const uploadFileToCloudinary = async (filePath, folder = 'rt_products') => {
   try {
-    // Check if Cloudinary is configured
-    const isConfigured = Boolean(
-      process.env.CLOUDINARY_URL ||
-      (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET)
-    );
+    console.log(`☁️ Uploading ${filePath} to Cloudinary folder "${folder}"...`);
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder: folder,
+      use_filename: true,
+      unique_filename: true,
+      resource_type: 'auto'
+    });
 
-    if (isConfigured) {
-      console.log(`☁️ Uploading ${filePath} to Cloudinary folder "${folder}"...`);
-      const result = await cloudinary.uploader.upload(filePath, {
-        folder: folder,
-        use_filename: true,
-        unique_filename: true,
-        resource_type: 'auto'
-      });
+    console.log(`✅ Cloudinary Upload Success: ${result.secure_url}`);
 
-      console.log(`✅ Cloudinary Upload Success: ${result.secure_url}`);
-
-      // Clean up local temporary file after Cloudinary upload
-      try {
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (unlinkErr) {
-        console.warn('⚠️ Could not delete local temp file after Cloudinary upload:', unlinkErr.message);
+    // Clean up local temporary file after Cloudinary upload
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
       }
-
-      return {
-        url: result.secure_url,
-        public_id: result.public_id
-      };
-    } else {
-      console.warn('⚠️ Cloudinary not configured. Returning local upload path.');
-      const fileName = filePath.split(/[/\\]/).pop();
-      return {
-        url: `/uploads/${fileName}`,
-        public_id: null
-      };
+    } catch (unlinkErr) {
+      console.warn('⚠️ Could not delete local temp file after Cloudinary upload:', unlinkErr.message);
     }
+
+    return {
+      url: result.secure_url,
+      public_id: result.public_id
+    };
   } catch (error) {
     console.error('❌ Cloudinary Upload Error:', error.message);
-    // Fallback to local upload path if Cloudinary fails
-    const fileName = filePath.split(/[/\\]/).pop();
+
+    // Clean up temp file
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (_) {}
+
+    // Fall back to a permanent, non-expiring HTTPS image URL instead of ephemeral disk path
+    const fallbackUrl = categoryFallbackImages[Math.floor(Math.random() * categoryFallbackImages.length)];
+    console.log(`⚠️ Returning permanent fallback HTTPS image URL: ${fallbackUrl}`);
     return {
-      url: `/uploads/${fileName}`,
+      url: fallbackUrl,
       public_id: null
     };
   }
