@@ -55,8 +55,9 @@ mongoose.set('debug', true);
 
 const app = express();
 
-// Body parser
-app.use(express.json());
+// Increase Body Parser limits to 50MB to support large image payloads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Enable CORS
 app.use(cors());
