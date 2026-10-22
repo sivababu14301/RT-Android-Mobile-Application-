@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -76,7 +77,7 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
   }
 
   void _saveBanner() async {
-    if (_isSubmitting) return; // Prevent duplicate requests on multiple taps
+    if (_isSubmitting) return;
 
     if (_titleController.text.trim().isEmpty) {
       _showError('Please enter a title');
@@ -105,14 +106,20 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
       if (_selectedImage != null) {
         debugPrint("[ADMIN BANNER] Uploading banner image to Cloudinary/Render...");
         imageUrl = await bannerProvider.uploadImage(_selectedImage!, token);
-        if (imageUrl == null) {
-          _showError('Failed to upload image');
+        if (imageUrl == null || imageUrl.trim().isEmpty) {
+          _showError('Failed to upload image. Please select a valid image file.');
+          setState(() {
+            _isSubmitting = false;
+          });
           return;
         }
       }
 
-      if (imageUrl == null || imageUrl.isEmpty) {
-        _showError('Please select an image');
+      if (imageUrl == null || imageUrl.trim().isEmpty) {
+        _showError('Please select a banner image before saving.');
+        setState(() {
+          _isSubmitting = false;
+        });
         return;
       }
 
@@ -179,11 +186,24 @@ class _AddEditBannerScreenState extends State<AddEditBannerScreen> {
     if (_selectedImage != null) {
       imageWidget = Image.file(_selectedImage!, fit: BoxFit.cover);
     } else if (widget.banner != null) {
-      imageWidget = Image.network(
-        widget.banner!.fullImageUrl,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: AppColors.gold),
-      );
+      final url = widget.banner!.fullImageUrl.trim();
+      if (url.startsWith('data:image/')) {
+        try {
+          final base64Str = url.split(',').last;
+          final bytes = base64Decode(base64Str);
+          imageWidget = Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: AppColors.gold),
+          );
+        } catch (_) {}
+      } else if (url.isNotEmpty) {
+        imageWidget = Image.network(
+          url,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: AppColors.gold),
+        );
+      }
     }
 
     return Scaffold(

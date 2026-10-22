@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../config/app_colors.dart';
 
@@ -21,6 +22,62 @@ class AdminBannerCard extends StatelessWidget {
     required this.onToggle,
   });
 
+  Widget _buildImageWidget(String url) {
+    final clean = url.trim();
+    if (clean.isEmpty) {
+      return Container(
+        height: 150,
+        color: Colors.white10,
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+        ),
+      );
+    }
+
+    if (clean.startsWith('data:image/')) {
+      try {
+        final base64Str = clean.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          height: 150,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            height: 150,
+            color: Colors.white10,
+            child: const Center(
+              child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+            ),
+          ),
+        );
+      } catch (e) {
+        return Container(
+          height: 150,
+          color: Colors.white10,
+          child: const Center(
+            child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+          ),
+        );
+      }
+    }
+
+    return Image.network(
+      clean,
+      height: 150,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => Container(
+        height: 150,
+        color: Colors.white10,
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -28,34 +85,23 @@ class AdminBannerCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.goldBorder.withOpacity(0.1)),
+        border: Border.all(color: AppColors.goldBorder.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Banner Image Preview
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             child: Stack(
               children: [
-                Image.network(
-                  imageUrl,
-                  height: 150,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 150,
-                    color: Colors.white10,
-                    child: const Icon(Icons.broken_image, color: AppColors.gold, size: 40),
-                  ),
-                ),
+                _buildImageWidget(imageUrl),
                 Positioned(
                   top: 12,
                   right: 12,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isActive ? Colors.green.withOpacity(0.9) : Colors.redAccent.withOpacity(0.9),
+                      color: isActive ? Colors.green.withValues(alpha: 0.9) : Colors.redAccent.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(

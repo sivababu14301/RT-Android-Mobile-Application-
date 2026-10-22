@@ -36,8 +36,19 @@ class OfferModel {
   static String get baseServerUrl => ApiConfig.baseServerUrl;
 
   String get fullImageUrl {
-    if (offerImage.startsWith('http')) return offerImage;
-    return '$baseServerUrl${offerImage.startsWith('/') ? '' : '/'}$offerImage';
+    final clean = offerImage.trim();
+    if (clean.isEmpty) return '';
+
+    // Guard: Return Base64 Data URIs directly without prepending server URL
+    if (clean.startsWith('data:image/')) {
+      return clean;
+    }
+
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      return clean;
+    }
+
+    return '$baseServerUrl${clean.startsWith('/') ? '' : '/'}$clean';
   }
 
   OfferStatus get calculatedStatus {

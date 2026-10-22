@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
@@ -20,6 +21,62 @@ class _BannerManagementScreenState extends State<BannerManagementScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<BannerProvider>().fetchBanners();
     });
+  }
+
+  Widget _buildBannerImageWidget(String url) {
+    final clean = url.trim();
+    if (clean.isEmpty) {
+      return Container(
+        height: 120,
+        color: Colors.black26,
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+        ),
+      );
+    }
+
+    if (clean.startsWith('data:image/')) {
+      try {
+        final base64Str = clean.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          height: 120,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            height: 120,
+            color: Colors.black26,
+            child: const Center(
+              child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+            ),
+          ),
+        );
+      } catch (e) {
+        return Container(
+          height: 120,
+          color: Colors.black26,
+          child: const Center(
+            child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+          ),
+        );
+      }
+    }
+
+    return Image.network(
+      clean,
+      height: 120,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => Container(
+        height: 120,
+        color: Colors.black26,
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+        ),
+      ),
+    );
   }
 
   @override
@@ -66,17 +123,7 @@ class _BannerManagementScreenState extends State<BannerManagementScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-                      child: Image.network(
-                        banner.fullImageUrl,
-                        height: 120,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          height: 120,
-                          color: Colors.black26,
-                          child: const Icon(Icons.error, color: AppColors.gold),
-                        ),
-                      ),
+                      child: _buildBannerImageWidget(banner.fullImageUrl),
                     ),
                     ListTile(
                       title: Text(

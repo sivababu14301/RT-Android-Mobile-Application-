@@ -26,8 +26,19 @@ class BannerModel {
   static String get baseServerUrl => ApiConfig.baseServerUrl;
 
   String get fullImageUrl {
-    if (image.startsWith('http')) return image;
-    return '$baseServerUrl${image.startsWith('/') ? '' : '/'}$image';
+    final clean = image.trim();
+    if (clean.isEmpty) return '';
+
+    // Guard: Return Base64 Data URIs directly without prepending server URL
+    if (clean.startsWith('data:image/')) {
+      return clean;
+    }
+
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      return clean;
+    }
+
+    return '$baseServerUrl${clean.startsWith('/') ? '' : '/'}$clean';
   }
 
   factory BannerModel.fromJson(Map<String, dynamic> json) {

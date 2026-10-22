@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/app_colors.dart';
@@ -129,6 +130,58 @@ class _HomeBannerState extends State<HomeBanner> {
     context.read<CustomerNavProvider>().setIndex(2);
   }
 
+  Widget _buildBannerImageWidget(String url) {
+    final clean = url.trim();
+    if (clean.isEmpty) {
+      return Container(
+        color: Colors.black26,
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+        ),
+      );
+    }
+
+    if (clean.startsWith('data:image/')) {
+      try {
+        final base64Str = clean.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: Colors.black26,
+            child: const Center(
+              child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+            ),
+          ),
+        );
+      } catch (e) {
+        return Container(
+          color: Colors.black26,
+          child: const Center(
+            child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+          ),
+        );
+      }
+    }
+
+    return Image.network(
+      clean,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: Colors.black26,
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<BannerProvider>(
@@ -206,18 +259,7 @@ class _HomeBannerState extends State<HomeBanner> {
           borderRadius: BorderRadius.circular(16),
           child: Stack(
             children: [
-              Image.network(
-                banner.fullImageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.black26,
-                    child: const Center(child: Icon(Icons.broken_image, color: AppColors.gold)),
-                  );
-                },
-              ),
+              _buildBannerImageWidget(banner.fullImageUrl),
               // Black Overlay Gradient
               Container(
                 decoration: BoxDecoration(
