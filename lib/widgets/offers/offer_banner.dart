@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../models/offer_model.dart';
 import '../../config/app_colors.dart';
@@ -8,6 +9,66 @@ class OfferBanner extends StatelessWidget {
   final VoidCallback onTap;
 
   const OfferBanner({super.key, required this.offer, required this.onTap});
+
+  Widget _buildOfferImageWidget(String url) {
+    final clean = url.trim();
+    if (clean.isEmpty) {
+      return Container(
+        color: Colors.grey[900],
+        width: double.infinity,
+        height: double.infinity,
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+        ),
+      );
+    }
+
+    if (clean.startsWith('data:image/')) {
+      try {
+        final base64Str = clean.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: Colors.grey[900],
+            width: double.infinity,
+            height: double.infinity,
+            child: const Center(
+              child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+            ),
+          ),
+        );
+      } catch (e) {
+        return Container(
+          color: Colors.grey[900],
+          width: double.infinity,
+          height: double.infinity,
+          child: const Center(
+            child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+          ),
+        );
+      }
+    }
+
+    return Image.network(
+      clean,
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: Colors.grey[900],
+        width: double.infinity,
+        height: double.infinity,
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,18 +93,7 @@ class OfferBanner extends StatelessWidget {
               // Hero Image
               Hero(
                 tag: 'offer_${offer.id}',
-                child: Image.network(
-                  offer.fullImageUrl,
-                  width: double.infinity,
-                  height: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: Colors.grey[900],
-                    width: double.infinity,
-                    height: double.infinity,
-                    child: const Icon(Icons.broken_image, color: AppColors.gold, size: 40),
-                  ),
-                ),
+                child: _buildOfferImageWidget(offer.fullImageUrl),
               ),
               
               // Dark Overlay

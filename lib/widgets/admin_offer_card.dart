@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/offer_model.dart';
@@ -16,6 +17,62 @@ class AdminOfferCard extends StatelessWidget {
     required this.onDelete,
     required this.onToggle,
   });
+
+  Widget _buildOfferImageWidget(String url) {
+    final clean = url.trim();
+    if (clean.isEmpty) {
+      return Container(
+        height: 140,
+        color: Colors.white10,
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+        ),
+      );
+    }
+
+    if (clean.startsWith('data:image/')) {
+      try {
+        final base64Str = clean.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          height: 140,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            height: 140,
+            color: Colors.white10,
+            child: const Center(
+              child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+            ),
+          ),
+        );
+      } catch (e) {
+        return Container(
+          height: 140,
+          color: Colors.white10,
+          child: const Center(
+            child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+          ),
+        );
+      }
+    }
+
+    return Image.network(
+      clean,
+      height: 140,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => Container(
+        height: 140,
+        color: Colors.white10,
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 40),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,17 +115,7 @@ class AdminOfferCard extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: Image.network(
-                  offer.fullImageUrl,
-                  height: 140,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 140,
-                    color: Colors.white10,
-                    child: const Icon(Icons.image_not_supported, color: AppColors.gold),
-                  ),
-                ),
+                child: _buildOfferImageWidget(offer.fullImageUrl),
               ),
               Positioned(
                 top: 10,

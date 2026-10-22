@@ -1,17 +1,18 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import '../../../config/app_colors.dart';
 import '../../../models/offer_model.dart';
+import '../../../models/product_model.dart';
 import '../../../providers/offer_provider.dart';
-import '../../../providers/category_provider.dart';
 import '../../../providers/product_provider.dart';
+import '../../../providers/category_provider.dart';
 import '../../../providers/admin/admin_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../widgets/custom_button.dart';
-import '../../../widgets/custom_textfield.dart';
 
 class AdminAddEditOfferScreen extends StatefulWidget {
   final OfferModel? offer;
@@ -22,25 +23,24 @@ class AdminAddEditOfferScreen extends StatefulWidget {
 }
 
 class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
-  final _nameController = TextEditingController();
-  final _discountController = TextEditingController();
-  final _descController = TextEditingController();
-  final _linkController = TextEditingController();
+  late TextEditingController _nameController;
+  late TextEditingController _discountController;
+  late TextEditingController _descController;
+  late TextEditingController _linkController;
 
-  bool _isSubmitting = false;
-  String _linkType = 'Category'; // 'Category' or 'Product'
-  String _selectedCategoryLink = 'Wedding Collection';
-  String _selectedProductId = '';
-  
   DateTime _startDate = DateTime.now();
   TimeOfDay _startTime = TimeOfDay.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 7));
   TimeOfDay _endTime = TimeOfDay.now();
-  
+
   bool _isEnabled = true;
+  bool _isSubmitting = false;
   File? _selectedImage;
   final ImagePicker _picker = ImagePicker();
-  final _dateFormat = DateFormat('dd MMM yyyy');
+
+  String _targetType = 'category';
+  String _selectedCategory = 'Shirts';
+  String? _selectedProductId;
 
   @override
   void initState() {
@@ -50,28 +50,24 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
       context.read<ProductProvider>().fetchProducts();
     });
 
+    _nameController = TextEditingController(text: widget.offer?.offerName ?? '');
+    _discountController = TextEditingController(text: widget.offer?.discount ?? '');
+    _descController = TextEditingController(text: widget.offer?.description ?? '');
+    _linkController = TextEditingController(text: widget.offer?.link ?? '');
+
     if (widget.offer != null) {
-      _nameController.text = widget.offer!.offerName;
-      _discountController.text = widget.offer!.discount;
-      _descController.text = widget.offer!.description;
       _startDate = widget.offer!.startDateTime;
       _startTime = TimeOfDay.fromDateTime(widget.offer!.startDateTime);
       _endDate = widget.offer!.endDateTime;
       _endTime = TimeOfDay.fromDateTime(widget.offer!.endDateTime);
       _isEnabled = widget.offer!.isEnabled;
-      
-      final linkStr = widget.offer!.link.trim();
-      if (linkStr.startsWith('product:')) {
-        _linkType = 'Product';
-        _selectedProductId = linkStr.replaceFirst('product:', '');
-        _linkController.text = linkStr;
-      } else if (linkStr.isNotEmpty && linkStr != 'All') {
-        _linkType = 'Category';
-        _selectedCategoryLink = linkStr;
-        _linkController.text = linkStr;
-      } else {
-        _linkType = 'Category';
-        _selectedCategoryLink = 'Wedding Collection';
+
+      _targetType = widget.offer!.targetType;
+      if (widget.offer!.category.isNotEmpty) {
+        _selectedCategory = widget.offer!.category;
+      }
+      if (widget.offer!.productId.isNotEmpty) {
+        _selectedProductId = widget.offer!.productId;
       }
     }
   }
@@ -98,59 +94,87 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
     }
   }
 
-  Future<void> _pickDateTime(bool isStart) async {
-    if (_isSubmitting) return;
-    final DateTime? pickedDate = await showDatePicker(
+  Future<void> _selectDate(BuildContext context, bool isStart) async {
+    final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: isStart ? _startDate : _endDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
-      builder: (context, child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppColors.gold,
-            onPrimary: Colors.black,
-            surface: AppColors.card,
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.gold,
+              onPrimary: Colors.black,
+              surface: AppColors.card,
+              onSurface: Colors.white,
+            ),
           ),
-        ),
-        child: child!,
-      ),
+          child: child!,
+        );
+      },
     );
 
-    if (pickedDate != null) {
-      if (!mounted) return;
-      final TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: isStart ? _startTime : _endTime,
-      );
-
-      if (pickedTime != null) {
-        setState(() {
-          if (isStart) {
-            _startDate = pickedDate;
-            _startTime = pickedTime;
-          } else {
-            _endDate = pickedDate;
-            _endTime = pickedTime;
-          }
-        });
-      }
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _startDate = picked;
+        } else {
+          _endDate = picked;
+        }
+      });
     }
   }
 
-  void _saveOffer() async {
-    if (_isSubmitting) return; // Prevent duplicate requests on multiple taps
+  Future<void> _selectTime(BuildContext context, bool isStart) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: isStart ? _startTime : _endTime,
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.gold,
+              onPrimary: Colors.black,
+              surface: AppColors.card,
+              onSurface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
 
-    if (_nameController.text.trim().isEmpty || _discountController.text.trim().isEmpty) {
-      _showError('Please fill all required fields');
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _startTime = picked;
+        } else {
+          _endTime = picked;
+        }
+      });
+    }
+  }
+
+  DateTime _combineDateAndTime(DateTime date, TimeOfDay time) {
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  }
+
+  void _saveOffer() async {
+    if (_isSubmitting) return;
+
+    if (_nameController.text.trim().isEmpty ||
+        _discountController.text.trim().isEmpty ||
+        _descController.text.trim().isEmpty) {
+      _showError('Please fill in all required fields');
       return;
     }
 
-    final start = DateTime(_startDate.year, _startDate.month, _startDate.day, _startTime.hour, _startTime.minute);
-    final end = DateTime(_endDate.year, _endDate.month, _endDate.day, _endTime.hour, _endTime.minute);
+    final start = _combineDateAndTime(_startDate, _startTime);
+    final end = _combineDateAndTime(_endDate, _endTime);
 
     if (end.isBefore(start)) {
-      _showError('End date must be after Start date');
+      _showError('End date/time must be after start date/time');
       return;
     }
 
@@ -176,53 +200,54 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
       if (_selectedImage != null) {
         debugPrint("[ADMIN OFFER] Uploading offer image to Cloudinary/Render...");
         imageUrl = await offerProvider.uploadImage(_selectedImage!, token);
-        if (imageUrl == null) {
-          _showError('Failed to upload image');
+        if (imageUrl == null || imageUrl.trim().isEmpty) {
+          _showError('Failed to upload image. Please select a valid image file.');
+          setState(() {
+            _isSubmitting = false;
+          });
           return;
         }
       }
 
-      if (imageUrl == null || imageUrl.isEmpty) {
-        _showError('Please select an image');
+      if (imageUrl == null || imageUrl.trim().isEmpty) {
+        _showError('Please select an offer image before saving.');
+        setState(() {
+          _isSubmitting = false;
+        });
         return;
       }
 
-      String finalTargetType = _linkType.toLowerCase();
-      String finalLink = _selectedCategoryLink;
-      String finalCategory = _selectedCategoryLink;
-      String finalProductId = '';
-      List<String> finalProductIds = [];
-
-      if (_linkType == 'Product') {
-        finalTargetType = 'product';
-        final productProvider = context.read<ProductProvider>();
-        if (_selectedProductId.isEmpty && productProvider.allProducts.isNotEmpty) {
-          _selectedProductId = productProvider.allProducts.first.id;
+      String targetLink = _linkController.text.trim();
+      if (_targetType == 'category') {
+        targetLink = _selectedCategory;
+      } else if (_targetType == 'product') {
+        if (_selectedProductId == null || _selectedProductId!.isEmpty) {
+          _showError('Please select a target product for this offer');
+          setState(() {
+            _isSubmitting = false;
+          });
+          return;
         }
-        finalProductId = _selectedProductId;
-        finalProductIds = [_selectedProductId];
-        finalLink = 'product:$_selectedProductId';
-      } else {
-        finalTargetType = 'category';
-        finalLink = _selectedCategoryLink;
-        finalCategory = _selectedCategoryLink;
+        targetLink = 'product:$_selectedProductId';
       }
 
       final offerData = {
         'title': _nameController.text.trim(),
+        'offerName': _nameController.text.trim(),
         'discount': _discountController.text.trim(),
         'description': _descController.text.trim(),
         'image': imageUrl,
-        'targetType': finalTargetType,
-        'category': finalCategory,
-        'categoryName': finalCategory,
-        'target': finalLink,
-        'link': finalLink,
-        'productId': finalProductId,
-        'productIds': finalProductIds,
+        'offerImage': imageUrl,
+        'link': targetLink,
+        'targetType': _targetType,
+        'category': _targetType == 'category' ? _selectedCategory : '',
+        'categoryId': _targetType == 'category' ? _selectedCategory : '',
+        'productId': _targetType == 'product' ? (_selectedProductId ?? '') : '',
+        'productIds': _targetType == 'product' && _selectedProductId != null ? [_selectedProductId!] : [],
         'startDate': start.toIso8601String(),
         'endDate': end.toIso8601String(),
         'isActive': _isEnabled,
+        'isEnabled': _isEnabled,
       };
 
       debugPrint("[ADMIN OFFER] API request started");
@@ -237,7 +262,10 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
       if (mounted) {
         if (error == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(widget.offer == null ? 'Offer added successfully' : 'Offer updated successfully'), backgroundColor: Colors.green),
+            SnackBar(
+              content: Text(widget.offer == null ? 'Offer added successfully' : 'Offer updated successfully'),
+              backgroundColor: Colors.green,
+            ),
           );
           Navigator.pop(context);
         } else {
@@ -263,19 +291,19 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
   }
 
   void _showError(String msg) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.red),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isEdit = widget.offer != null;
     final isLoading = context.watch<OfferProvider>().isLoading;
-    
+    final dateFormat = DateFormat('dd MMM yyyy');
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -283,136 +311,200 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
           icon: const Icon(Icons.arrow_back, color: AppColors.gold),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(widget.offer == null ? 'Add Offer' : 'Edit Offer', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(
+          isEdit ? 'Edit Offer' : 'Add New Offer',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildImagePicker(),
-            const SizedBox(height: 32),
-            CustomTextField(hintText: 'Offer Name', prefixIcon: Icons.title, controller: _nameController),
-            CustomTextField(hintText: 'Discount (e.g. 20% OFF)', prefixIcon: Icons.percent, controller: _discountController),
-            CustomTextField(hintText: 'Description', prefixIcon: Icons.description, controller: _descController),
-            const SizedBox(height: 12),
-            _buildTargetSelector(),
-            const SizedBox(height: 16),
-            _buildDateTimePicker('Start Date & Time', _startDate, _startTime, () => _pickDateTime(true)),
-            const SizedBox(height: 16),
-            _buildDateTimePicker('End Date & Time', _endDate, _endTime, () => _pickDateTime(false)),
             const SizedBox(height: 24),
+            _buildTextField(_nameController, 'Offer Name / Title *', Icons.local_offer_outlined),
+            _buildTextField(_discountController, 'Discount Text (e.g. 20% OFF) *', Icons.percent_outlined),
+            _buildTextField(_descController, 'Description *', Icons.description_outlined, maxLines: 3),
+            
+            const SizedBox(height: 10),
+            _buildTargetTypeSelector(),
+            if (_targetType == 'category') _buildCategorySelector(),
+            if (_targetType == 'product') _buildProductSelector(),
+
+            const SizedBox(height: 10),
+            const Text('Start Date & Time *', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _buildPickerTile(Icons.calendar_today, dateFormat.format(_startDate), () => _selectDate(context, true))),
+                const SizedBox(width: 12),
+                Expanded(child: _buildPickerTile(Icons.access_time, _startTime.format(context), () => _selectTime(context, true))),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text('End Date & Time *', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _buildPickerTile(Icons.calendar_today, dateFormat.format(_endDate), () => _selectDate(context, false))),
+                const SizedBox(width: 12),
+                Expanded(child: _buildPickerTile(Icons.access_time, _endTime.format(context), () => _selectTime(context, false))),
+              ],
+            ),
+
+            const SizedBox(height: 16),
             SwitchListTile(
-              title: const Text('Offer Status', style: TextStyle(color: Colors.white, fontSize: 16)),
-              subtitle: Text(_isEnabled ? 'Active' : 'Inactive', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              title: const Text('Enable Offer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
               value: _isEnabled,
               activeThumbColor: AppColors.gold,
               onChanged: _isSubmitting ? null : (val) => setState(() => _isEnabled = val),
-              contentPadding: EdgeInsets.zero,
             ),
-            const SizedBox(height: 48),
+            const SizedBox(height: 30),
             (_isSubmitting || isLoading)
-              ? const CircularProgressIndicator(color: AppColors.gold)
-              : CustomButton(text: widget.offer == null ? 'SAVE OFFER' : 'UPDATE OFFER', onPressed: _isSubmitting ? () {} : _saveOffer),
+                ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
+                : CustomButton(
+                    text: isEdit ? 'UPDATE OFFER' : 'SAVE OFFER',
+                    onPressed: _isSubmitting ? () {} : _saveOffer,
+                  ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTargetSelector() {
-    final categoryProvider = context.watch<CategoryProvider>();
-    final productProvider = context.watch<ProductProvider>();
-
-    final List<String> availableCategories = ['Wedding Collection', 'Shirts', 'Pants', 'T-Shirts', 'Suits', 'Uniforms', 'All'];
-
-    for (var cat in categoryProvider.categories) {
-      if (!availableCategories.contains(cat.name) && cat.name.isNotEmpty) {
-        availableCategories.add(cat.name);
-      }
-    }
-
-    if (!_selectedCategoryLink.startsWith('product:') && !availableCategories.contains(_selectedCategoryLink)) {
-      availableCategories.add(_selectedCategoryLink);
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Linked Offer Target', style: TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: ChoiceChip(
-                label: const Text('Category Offer'),
-                selected: _linkType == 'Category',
-                selectedColor: AppColors.gold,
-                backgroundColor: AppColors.card,
-                labelStyle: TextStyle(color: _linkType == 'Category' ? Colors.black : Colors.white, fontWeight: FontWeight.bold),
-                onSelected: _isSubmitting ? null : (val) {
-                  if (val) setState(() => _linkType = 'Category');
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ChoiceChip(
-                label: const Text('Specific Product'),
-                selected: _linkType == 'Product',
-                selectedColor: AppColors.gold,
-                backgroundColor: AppColors.card,
-                labelStyle: TextStyle(color: _linkType == 'Product' ? Colors.black : Colors.white, fontWeight: FontWeight.bold),
-                onSelected: _isSubmitting ? null : (val) {
-                  if (val) setState(() => _linkType = 'Product');
-                },
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (_linkType == 'Category')
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)),
+  Widget _buildTargetTypeSelector() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.ads_click, color: AppColors.gold, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: availableCategories.contains(_selectedCategoryLink) ? _selectedCategoryLink : availableCategories[0],
+                value: _targetType,
                 dropdownColor: AppColors.card,
                 isExpanded: true,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 icon: const Icon(Icons.arrow_drop_down, color: AppColors.gold),
-                items: availableCategories.map((cat) => DropdownMenuItem(
+                items: const [
+                  DropdownMenuItem(value: 'category', child: Text('Target: Product Category')),
+                  DropdownMenuItem(value: 'product', child: Text('Target: Specific Product')),
+                ],
+                onChanged: _isSubmitting ? null : (val) {
+                  if (val != null) {
+                    setState(() {
+                      _targetType = val;
+                    });
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategorySelector() {
+    final categoryProvider = context.watch<CategoryProvider>();
+    final List<String> categories = ['Shirts', 'Pants', 'T-Shirts', 'Suits', 'Wedding Collection', 'Uniforms', 'All'];
+
+    for (var cat in categoryProvider.categories) {
+      if (!categories.contains(cat.name) && cat.name.isNotEmpty) {
+        categories.add(cat.name);
+      }
+    }
+
+    if (!categories.contains(_selectedCategory) && _selectedCategory.isNotEmpty) {
+      categories.add(_selectedCategory);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.category_outlined, color: AppColors.gold, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: categories.contains(_selectedCategory) ? _selectedCategory : categories[0],
+                dropdownColor: AppColors.card,
+                isExpanded: true,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                icon: const Icon(Icons.arrow_drop_down, color: AppColors.gold),
+                items: categories.map((cat) => DropdownMenuItem(
                   value: cat,
-                  child: Text(cat, style: const TextStyle(color: Colors.white)),
+                  child: Text('Category: $cat', style: const TextStyle(color: Colors.white)),
                 )).toList(),
                 onChanged: _isSubmitting ? null : (val) {
                   if (val != null) {
                     setState(() {
-                      _selectedCategoryLink = val;
+                      _selectedCategory = val;
                       _linkController.text = val;
                     });
                   }
                 },
               ),
             ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductSelector() {
+    final productProvider = context.watch<ProductProvider>();
+    final List<Product> products = productProvider.products;
+
+    if (products.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(16)),
+        child: const Text('No products available to link.', style: TextStyle(color: AppColors.grey)),
+      );
+    }
+
+    if (_selectedProductId == null || !products.any((p) => p.id == _selectedProductId)) {
+      _selectedProductId = products.first.id;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: productProvider.allProducts.any((p) => p.id == _selectedProductId)
-                    ? _selectedProductId
-                    : (productProvider.allProducts.isNotEmpty ? productProvider.allProducts.first.id : null),
-                hint: const Text('Select a Product', style: TextStyle(color: Colors.white70)),
+                value: _selectedProductId,
                 dropdownColor: AppColors.card,
                 isExpanded: true,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 icon: const Icon(Icons.arrow_drop_down, color: AppColors.gold),
-                items: productProvider.allProducts.map((prod) => DropdownMenuItem(
-                  value: prod.id,
-                  child: Text('${prod.name} (₹${prod.price.toInt()})', style: const TextStyle(color: Colors.white)),
+                items: products.map((p) => DropdownMenuItem(
+                  value: p.id,
+                  child: Text('${p.name} (₹${p.price.toInt()})', style: const TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis),
                 )).toList(),
                 onChanged: _isSubmitting ? null : (val) {
                   if (val != null) {
@@ -425,7 +517,8 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
               ),
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -434,7 +527,24 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
     if (_selectedImage != null) {
       imageWidget = Image.file(_selectedImage!, fit: BoxFit.cover);
     } else if (widget.offer != null) {
-      imageWidget = Image.network(widget.offer!.fullImageUrl, fit: BoxFit.cover);
+      final url = widget.offer!.fullImageUrl.trim();
+      if (url.startsWith('data:image/')) {
+        try {
+          final base64Str = url.split(',').last;
+          final bytes = base64Decode(base64Str);
+          imageWidget = Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: AppColors.gold),
+          );
+        } catch (_) {}
+      } else if (url.isNotEmpty) {
+        imageWidget = Image.network(
+          url,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: AppColors.gold),
+        );
+      }
     }
 
     return GestureDetector(
@@ -458,8 +568,8 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.add_a_photo_outlined, color: AppColors.gold, size: 40),
-                    SizedBox(height: 12),
-                    Text('Change Offer Image', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 8),
+                    Text('Upload Offer Banner Image', style: TextStyle(color: AppColors.grey)),
                   ],
                 ),
               ),
@@ -470,27 +580,46 @@ class _AdminAddEditOfferScreenState extends State<AdminAddEditOfferScreen> {
     );
   }
 
-  Widget _buildDateTimePicker(String label, DateTime date, TimeOfDay time, VoidCallback onTap) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _isSubmitting ? null : onTap,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_month, color: AppColors.gold, size: 16),
-                const SizedBox(width: 10),
-                Text('${_dateFormat.format(date)}  •  ${time.format(context)}', style: const TextStyle(color: Colors.white, fontSize: 14)),
-              ],
-            ),
-          ),
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: TextField(
+        controller: controller,
+        enabled: !_isSubmitting,
+        maxLines: maxLines,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: AppColors.grey),
+          prefixIcon: Icon(icon, color: AppColors.gold, size: 20),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildPickerTile(IconData icon, String value, VoidCallback onTap) {
+    return InkWell(
+      onTap: _isSubmitting ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.gold, size: 18),
+            const SizedBox(width: 8),
+            Text(value, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          ],
+        ),
+      ),
     );
   }
 }

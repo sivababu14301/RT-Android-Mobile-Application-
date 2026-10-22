@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
@@ -65,12 +66,10 @@ class _ExclusiveOffersState extends State<ExclusiveOffers> {
       return 'Shirts';
     }
 
-    // Direct Category match from Admin selection
     if (category.isNotEmpty && category.toLowerCase() != 'all') {
       return category;
     }
 
-    // Fallback Keyword detection from Offer Name or Description
     final nameLower = '${offer.offerName} ${offer.description}'.toLowerCase();
     
     if (nameLower.contains('tshirt') || nameLower.contains('t-shirt')) {
@@ -131,6 +130,18 @@ class _ExclusiveOffersState extends State<ExclusiveOffers> {
 
     // Switch to Products tab in bottom navigation bar
     context.read<CustomerNavProvider>().setIndex(2);
+  }
+
+  ImageProvider _getOfferImageProvider(String url) {
+    final clean = url.trim();
+    if (clean.startsWith('data:image/')) {
+      try {
+        final base64Str = clean.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return MemoryImage(bytes);
+      } catch (_) {}
+    }
+    return NetworkImage(clean.isNotEmpty ? clean : 'https://images.unsplash.com/photo-1621072156002-e2fcced0b170');
   }
 
   @override
@@ -204,7 +215,7 @@ class _ExclusiveOffersState extends State<ExclusiveOffers> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             image: DecorationImage(
-              image: NetworkImage(offer.fullImageUrl),
+              image: _getOfferImageProvider(offer.fullImageUrl),
               fit: BoxFit.cover,
             ),
           ),

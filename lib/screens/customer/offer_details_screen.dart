@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/offer_model.dart';
@@ -8,6 +9,58 @@ class OfferDetailsScreen extends StatelessWidget {
   final OfferModel offer;
 
   const OfferDetailsScreen({super.key, required this.offer});
+
+  Widget _buildOfferImageWidget(String url) {
+    final clean = url.trim();
+    if (clean.isEmpty) {
+      return Container(
+        color: Colors.grey[900],
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 60),
+        ),
+      );
+    }
+
+    if (clean.startsWith('data:image/')) {
+      try {
+        final base64Str = clean.split(',').last;
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: Colors.grey[900],
+            child: const Center(
+              child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 60),
+            ),
+          ),
+        );
+      } catch (e) {
+        return Container(
+          color: Colors.grey[900],
+          child: const Center(
+            child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 60),
+          ),
+        );
+      }
+    }
+
+    return Image.network(
+      clean,
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: Colors.grey[900],
+        child: const Center(
+          child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 60),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,10 +77,7 @@ class OfferDetailsScreen extends StatelessWidget {
             flexibleSpace: FlexibleSpaceBar(
               background: Hero(
                 tag: 'offer_${offer.id}',
-                child: Image.network(
-                  offer.fullImageUrl,
-                  fit: BoxFit.cover,
-                ),
+                child: _buildOfferImageWidget(offer.fullImageUrl),
               ),
             ),
           ),
