@@ -26,9 +26,19 @@ class UserModel {
   });
 
   String get getProfileImage {
-    if (profileImage != null && profileImage!.isNotEmpty) {
-      if (profileImage!.startsWith('http')) return profileImage!;
-      return '${ApiConfig.baseServerUrl}${profileImage!.startsWith('/') ? '' : '/'}$profileImage';
+    if (profileImage != null && profileImage!.trim().isNotEmpty) {
+      final clean = profileImage!.trim();
+
+      // Guard: Return Base64 Data URIs directly without prepending base server URL
+      if (clean.startsWith('data:image/')) {
+        return clean;
+      }
+
+      if (clean.startsWith('http://') || clean.startsWith('https://')) {
+        return clean;
+      }
+
+      return '${ApiConfig.baseServerUrl}${clean.startsWith('/') ? '' : '/'}$clean';
     }
     return 'https://ui-avatars.com/api/?name=$fullName&background=D4AF37&color=0D0D0D&bold=true&size=256';
   }
@@ -39,12 +49,12 @@ class UserModel {
       fullName: json['name'] ?? json['fullName'] ?? '',
       email: json['email'] ?? '',
       mobile: json['mobile'] ?? '', 
-      profileImage: json['profileImage'] ?? json['profilePhoto'],
+      profileImage: json['profileImage'] ?? json['profilePic'] ?? json['profilePhoto'] ?? json['avatar'] ?? json['image'],
       token: json['token'],
       role: json['role'],
       address: json['address'] != null ? AddressModel.fromJson(json['address']) : null,
       totalOrders: json['totalOrders'] ?? 0,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'] ?? '') : null,
     );
   }
 

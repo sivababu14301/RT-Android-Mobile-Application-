@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { uploadFileToCloudinary } = require('../services/cloudinaryService');
 
 // @desc    Get user profile
 // @route   GET /api/users/profile
@@ -18,7 +19,7 @@ const getUserProfile = async (req, res) => {
         email: user.email,
         mobile: user.mobile,
         address: user.address,
-        profileImage: user.profileImage,
+        profileImage: user.profileImage || '',
         role: user.role
       }
     });
@@ -34,9 +35,9 @@ const getUserProfile = async (req, res) => {
 const updateUserProfile = async (req, res) => {
   console.log('--- UPDATE PROFILE REQUEST ---');
   console.log('USER ID:', req.user._id);
-  console.log('BODY:', req.body);
 
-  const { name, email, mobile } = req.body;
+  const { name, email, mobile, profileImage, profilePic, image } = req.body;
+  const newProfileImage = profileImage || profilePic || image;
 
   // Validation
   if (!name || !email || !mobile) {
@@ -73,15 +74,19 @@ const updateUserProfile = async (req, res) => {
       });
     }
 
-    // Use findByIdAndUpdate to avoid triggering pre('save') hook unnecessarily
-    // when we are not updating the password.
+    const updateFields = {
+      name,
+      email: email.toLowerCase(),
+      mobile
+    };
+
+    if (newProfileImage !== undefined && newProfileImage !== null) {
+      updateFields.profileImage = newProfileImage;
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      {
-        name,
-        email: email.toLowerCase(),
-        mobile
-      },
+      updateFields,
       { new: true, runValidators: true }
     );
 
@@ -89,7 +94,7 @@ const updateUserProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    console.log('✅ PROFILE UPDATED SUCCESSFULLY');
+    console.log('✅ PROFILE UPDATED SUCCESSFULLY for User:', updatedUser._id);
 
     return res.status(200).json({
       success: true,
@@ -100,7 +105,7 @@ const updateUserProfile = async (req, res) => {
         email: updatedUser.email,
         mobile: updatedUser.mobile,
         role: updatedUser.role,
-        profileImage: updatedUser.profileImage
+        profileImage: updatedUser.profileImage || ''
       }
     });
   } catch (error) {
@@ -226,11 +231,16 @@ const updateProfilePic = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Please upload an image' });
     }
 
-    const filePath = `/uploads/${req.file.filename}`;
+    const uploadResult = await uploadFileToCloudinary(req.file.path, 'rt_profiles');
+    const imagePath = uploadResult.url;
+
+    if (!imagePath) {
+      return res.status(400).json({ success: false, message: 'Failed to upload profile image' });
+    }
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      { profileImage: filePath },
+      { profileImage: imagePath },
       { new: true }
     );
 
@@ -238,7 +248,15 @@ const updateProfilePic = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: 'Profile picture updated',
-        profileImage: filePath,
+        profileImage: imagePath,
+        user: {
+          _id: updatedUser._id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          mobile: updatedUser.mobile,
+          role: updatedUser.role,
+          profileImage: updatedUser.profileImage || ''
+        }
       });
     } else {
       return res.status(404).json({ success: false, message: 'User not found' });

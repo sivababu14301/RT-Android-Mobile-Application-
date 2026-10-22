@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/app_colors.dart';
+import '../config/api_config.dart';
 import '../providers/customer_nav_provider.dart';
 import '../providers/user_provider.dart';
 import '../screens/wishlist/wishlist_screen.dart';
@@ -16,6 +18,24 @@ import '../providers/notification_provider.dart';
 class NavDrawer extends StatelessWidget {
   const NavDrawer({super.key});
 
+  ImageProvider _getProfileImageProvider(String? rawImage, String name) {
+    if (rawImage != null && rawImage.trim().isNotEmpty) {
+      final clean = rawImage.trim();
+      if (clean.startsWith('data:image/')) {
+        try {
+          final base64Str = clean.split(',').last;
+          final bytes = base64Decode(base64Str);
+          return MemoryImage(bytes);
+        } catch (_) {}
+      }
+      if (clean.startsWith('http://') || clean.startsWith('https://')) {
+        return NetworkImage(clean);
+      }
+      return NetworkImage('${ApiConfig.baseServerUrl}${clean.startsWith('/') ? '' : '/'}$clean');
+    }
+    return NetworkImage('https://ui-avatars.com/api/?name=${Uri.encodeComponent(name)}&background=D4AF37&color=0D0D0D&bold=true&size=256');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer2<UserProvider, NotificationProvider>(
@@ -24,7 +44,10 @@ class NavDrawer extends StatelessWidget {
         final unreadCount = notificationProvider.unreadCount;
 
         // Profile image logic
-        ImageProvider profileImage = NetworkImage(user?.getProfileImage ?? 'https://ui-avatars.com/api/?name=Guest&background=D4AF37&color=0D0D0D&bold=true');
+        ImageProvider profileImage = _getProfileImageProvider(
+          user?.profileImage ?? user?.getProfileImage,
+          user?.fullName ?? 'Guest',
+        );
 
         return Drawer(
           backgroundColor: AppColors.background,
