@@ -102,6 +102,11 @@ class Product {
     }
     String cleanPath = path.replaceAll('\\', '/').trim();
 
+    // Guard: Return Base64 Data URIs as-is without prepending base server URL
+    if (cleanPath.startsWith('data:image/')) {
+      return cleanPath;
+    }
+
     cleanPath = cleanPath
         .replaceAll('http://localhost:5000', ApiConfig.baseServerUrl)
         .replaceAll('https://localhost:5000', ApiConfig.baseServerUrl)
