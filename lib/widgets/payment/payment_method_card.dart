@@ -8,6 +8,8 @@ class PaymentMethodCard extends StatelessWidget {
   final bool isRecommended;
   final VoidCallback onTap;
   final Widget? extraContent;
+  final Widget? leadingIcon;
+  final String? badgeText;
 
   const PaymentMethodCard({
     super.key,
@@ -17,6 +19,8 @@ class PaymentMethodCard extends StatelessWidget {
     this.isRecommended = false,
     required this.onTap,
     this.extraContent,
+    this.leadingIcon,
+    this.badgeText,
   });
 
   @override
@@ -24,24 +28,34 @@ class PaymentMethodCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        margin: const EdgeInsets.only(bottom: 16),
+        duration: const Duration(milliseconds: 250),
+        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? const Color(0xFF221F18) : const Color(0xFF161616),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? AppColors.gold : Colors.white10,
-            width: isSelected ? 1.5 : 1,
+            width: isSelected ? 1.8 : 1,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.gold.withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           children: [
             Row(
               children: [
+                // Radio indicator
                 Container(
-                  width: 22,
-                  height: 22,
+                  width: 20,
+                  height: 20,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
@@ -52,8 +66,8 @@ class PaymentMethodCard extends StatelessWidget {
                   child: isSelected
                       ? Center(
                           child: Container(
-                            width: 12,
-                            height: 12,
+                            width: 10,
+                            height: 10,
                             decoration: const BoxDecoration(
                               color: AppColors.gold,
                               shape: BoxShape.circle,
@@ -62,31 +76,55 @@ class PaymentMethodCard extends StatelessWidget {
                         )
                       : null,
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
+
+                // Optional leading custom icon
+                if (leadingIcon != null) ...[
+                  leadingIcon!,
+                  const SizedBox(width: 14),
+                ],
+
+                // Title & Subtitle
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          Text(
-                            title,
-                            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                          if (isRecommended) ...[
+                          if (isRecommended || badgeText != null) ...[
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppColors.gold.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
+                                color: isRecommended
+                                    ? AppColors.gold.withValues(alpha: 0.2)
+                                    : Colors.green.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isRecommended ? AppColors.gold : Colors.green,
+                                  width: 0.5,
+                                ),
                               ),
-                              child: const Text(
-                                '⭐ Recommended',
-                                style: TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold),
+                              child: Text(
+                                badgeText ?? '⭐ Recommended',
+                                style: TextStyle(
+                                  color: isRecommended ? AppColors.gold : Colors.green,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ]
+                          ],
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -100,7 +138,7 @@ class PaymentMethodCard extends StatelessWidget {
               ],
             ),
             if (extraContent != null && isSelected) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               extraContent!,
             ],
           ],

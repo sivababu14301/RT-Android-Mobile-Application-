@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../config/app_colors.dart';
 import '../../models/order_model.dart';
+import '../../models/payment_model.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../providers/user_provider.dart';
@@ -14,7 +15,13 @@ import 'payment_success_screen.dart';
 
 class PaymentProcessingScreen extends StatefulWidget {
   final bool isCod;
-  const PaymentProcessingScreen({super.key, this.isCod = false});
+  final PaymentMethodType preferredMethod;
+
+  const PaymentProcessingScreen({
+    super.key,
+    this.isCod = false,
+    this.preferredMethod = PaymentMethodType.razorpay,
+  });
 
   @override
   State<PaymentProcessingScreen> createState() => _PaymentProcessingScreenState();
@@ -55,11 +62,51 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
     super.dispose();
   }
 
+  String _getPaymentMethodLabel() {
+    switch (widget.preferredMethod) {
+      case PaymentMethodType.googlePay:
+        return 'Google Pay UPI';
+      case PaymentMethodType.phonePe:
+        return 'PhonePe UPI';
+      case PaymentMethodType.paytm:
+        return 'Paytm UPI/Wallet';
+      case PaymentMethodType.bhimUpi:
+        return 'BHIM/UPI';
+      case PaymentMethodType.card:
+        return 'Card';
+      case PaymentMethodType.netBanking:
+        return 'Net Banking';
+      case PaymentMethodType.razorpay:
+        return 'Razorpay Online';
+      case PaymentMethodType.cod:
+        return 'COD';
+    }
+  }
+
+  String? _getRazorpayMethodHint() {
+    switch (widget.preferredMethod) {
+      case PaymentMethodType.googlePay:
+      case PaymentMethodType.phonePe:
+      case PaymentMethodType.paytm:
+      case PaymentMethodType.bhimUpi:
+        return 'upi';
+      case PaymentMethodType.card:
+        return 'card';
+      case PaymentMethodType.netBanking:
+        return 'netbanking';
+      case PaymentMethodType.razorpay:
+      case PaymentMethodType.cod:
+        return null;
+    }
+  }
+
   Future<void> _startCheckoutProcess() async {
     setState(() {
       _isProcessing = true;
       _errorMessage = null;
-      _statusMessage = widget.isCod ? 'Validating order and address details...' : 'Initializing Razorpay payment...';
+      _statusMessage = widget.isCod
+          ? 'Validating order and address details...'
+          : 'Initializing ${_getPaymentMethodLabel()} gateway...';
     });
 
     try {
@@ -78,7 +125,6 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
       if (cartProvider.items.isEmpty) throw 'Your shopping cart is empty.';
 
       final double checkoutGrandTotal = cartProvider.totalAmount;
-      final int amountPaiseExpected = (checkoutGrandTotal * 100).round();
 
       debugPrint("CHECKOUT GRAND TOTAL: ₹${checkoutGrandTotal.round()}");
       debugPrint("IDEMPOTENCY KEY: $_idempotencyKey");
@@ -105,7 +151,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
         'idempotencyKey': _idempotencyKey,
         'orderItems': orderItems,
         'shippingAddress': address.toJson(),
-        'paymentMethod': widget.isCod ? 'COD' : 'Razorpay',
+        'paymentMethod': _getPaymentMethodLabel(),
         'itemsPrice': checkoutGrandTotal,
         'shippingPrice': 0.0,
         'totalPrice': checkoutGrandTotal,
@@ -115,7 +161,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
         // --- COD FLOW ---
         setState(() => _statusMessage = 'Placing Cash on Delivery Order...');
         
-        // 1. Check if order was already saved to prevent duplicate creation
+        // Check if order was already saved to prevent duplicate creation
         await orderProvider.fetchMyOrders(_authToken!);
         final existingOrder = _findExistingOrder(orderProvider.orders);
 
@@ -141,7 +187,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
           throw 'Server failed to finalize Cash on Delivery order. Please retry.';
         }
       } else {
-        // --- RAZORPAY ONLINE PAYMENT FLOW ---
+        // --- RAZORPAY / UPI ONLINE PAYMENT FLOW ---
         setState(() => _statusMessage = 'Creating Razorpay Order...');
         final paymentService = PaymentService();
         final rzpOrderRes = await paymentService.createRazorpayOrder(checkoutGrandTotal, _authToken!);
@@ -150,17 +196,25 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
         final String keyId = rzpOrderRes['keyId'];
         final int rzpOrderAmount = rzpOrderRes['amount'];
 
-        var options = {
+        final String? methodHint = _getRazorpayMethodHint();
+
+        Map<String, dynamic> prefillMap = {
+          'contact': userProvider.user?.mobile ?? '',
+          'email': userProvider.user?.email ?? '',
+          'name': userProvider.user?.fullName ?? '',
+        };
+
+        if (methodHint != null) {
+          prefillMap['method'] = methodHint;
+        }
+
+        var options = <String, dynamic>{
           'key': keyId,
           'amount': rzpOrderAmount,
           'name': 'RT - Raymaans Tailors',
-          'description': 'Custom Tailored Order',
+          'description': 'Order Payment via ${_getPaymentMethodLabel()}',
           'order_id': _currentRzpOrderId,
-          'prefill': {
-            'contact': userProvider.user?.mobile ?? '',
-            'email': userProvider.user?.email ?? '',
-            'name': userProvider.user?.fullName ?? '',
-          },
+          'prefill': prefillMap,
           'theme': {
             'color': '#D4AF37', // Gold branding
           },
@@ -171,7 +225,14 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
           'send_sms_hash': true,
         };
 
-        setState(() => _statusMessage = 'Opening Razorpay Payment Gateway...');
+        // Pass UPI specific intent configuration if selected
+        if (methodHint == 'upi') {
+          options['upi'] = {
+            'flow': 'intent',
+          };
+        }
+
+        setState(() => _statusMessage = 'Launching ${_getPaymentMethodLabel()}...');
         _razorpay.open(options);
       }
     } catch (e) {
@@ -234,7 +295,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
                 amount: createdOrder.totalPrice,
                 paymentId: response.paymentId ?? 'RP_${DateTime.now().millisecondsSinceEpoch}',
                 orderId: shortOrderId,
-                method: 'Razorpay Online',
+                method: _getPaymentMethodLabel(),
               ),
             ),
             (route) => false,
@@ -279,7 +340,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -288,7 +349,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          widget.isCod ? 'Cash on Delivery Checkout' : 'Online Payment Checkout',
+          widget.isCod ? 'Cash on Delivery Checkout' : '${_getPaymentMethodLabel()} Checkout',
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
         ),
       ),
@@ -363,7 +424,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
                       side: const BorderSide(color: AppColors.grey),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('BACK TO CART'),
+                    child: const Text('BACK TO PAYMENT METHODS'),
                   ),
                 ),
               ],

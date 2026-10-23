@@ -1,6 +1,15 @@
 import 'package:flutter/widgets.dart';
 
-enum PaymentMethodType { cod, razorpay }
+enum PaymentMethodType {
+  googlePay,
+  phonePe,
+  paytm,
+  bhimUpi,
+  card,
+  netBanking,
+  razorpay,
+  cod,
+}
 
 class PaymentMethodModel {
   final PaymentMethodType type;
