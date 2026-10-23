@@ -14,8 +14,9 @@ class OrderService {
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json',
           },
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 60),
+          sendTimeout: const Duration(seconds: 60),
           validateStatus: (status) => true,
         )) {
     _dio.interceptors.add(ApiConfig.retryInterceptor);
@@ -37,7 +38,7 @@ class OrderService {
       
       final response = await _dio.post('', data: orderData);
       
-      if (response.statusCode != 201) {
+      if (response.statusCode != 201 && response.statusCode != 200) {
         throw _handleError(response);
       }
       

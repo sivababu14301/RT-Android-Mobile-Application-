@@ -1,7 +1,10 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../config/app_colors.dart';
+import '../../models/order_model.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../providers/user_provider.dart';
@@ -20,13 +23,17 @@ class PaymentProcessingScreen extends StatefulWidget {
 class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
   late Razorpay _razorpay;
   String _statusMessage = 'Initializing Checkout...';
+  bool _isProcessing = true;
+  String? _errorMessage;
   Map<String, dynamic>? _preparedOrderData;
   String? _authToken;
   String? _currentRzpOrderId;
+  String? _idempotencyKey;
 
   @override
   void initState() {
     super.initState();
+    _idempotencyKey = 'RT_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9999)}';
     if (!widget.isCod) {
       _initRazorpay();
     }
@@ -49,6 +56,12 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
   }
 
   Future<void> _startCheckoutProcess() async {
+    setState(() {
+      _isProcessing = true;
+      _errorMessage = null;
+      _statusMessage = widget.isCod ? 'Validating order and address details...' : 'Initializing Razorpay payment...';
+    });
+
     try {
       final cartProvider = context.read<CartProvider>();
       final userProvider = context.read<UserProvider>();
@@ -58,7 +71,9 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
       if (_authToken == null) throw 'Authentication required. Please login again.';
 
       final address = userProvider.user?.address;
-      if (address == null) throw 'Shipping address is required. Please add delivery address.';
+      if (address == null || address.fullAddress.trim().isEmpty) {
+        throw 'Shipping address is required. Please add delivery address.';
+      }
 
       if (cartProvider.items.isEmpty) throw 'Your shopping cart is empty.';
 
@@ -66,8 +81,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
       final int amountPaiseExpected = (checkoutGrandTotal * 100).round();
 
       debugPrint("CHECKOUT GRAND TOTAL: ₹${checkoutGrandTotal.round()}");
-      debugPrint("RAZORPAY REQUEST AMOUNT: ₹${checkoutGrandTotal.round()}");
-      debugPrint("RAZORPAY AMOUNT IN PAISE: $amountPaiseExpected");
+      debugPrint("IDEMPOTENCY KEY: $_idempotencyKey");
 
       // Map cart items to backend order items structure
       final orderItems = cartProvider.items.map((item) {
@@ -88,6 +102,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
       }).toList();
 
       _preparedOrderData = {
+        'idempotencyKey': _idempotencyKey,
         'orderItems': orderItems,
         'shippingAddress': address.toJson(),
         'paymentMethod': widget.isCod ? 'COD' : 'Razorpay',
@@ -99,36 +114,41 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
       if (widget.isCod) {
         // --- COD FLOW ---
         setState(() => _statusMessage = 'Placing Cash on Delivery Order...');
-        final createdOrder = await orderProvider.placeOrder(_preparedOrderData!, _authToken!);
+        
+        // 1. Check if order was already saved to prevent duplicate creation
+        await orderProvider.fetchMyOrders(_authToken!);
+        final existingOrder = _findExistingOrder(orderProvider.orders);
+
+        OrderModel? createdOrder = existingOrder;
+        if (createdOrder == null) {
+          createdOrder = await orderProvider.placeOrder(_preparedOrderData!, _authToken!);
+        }
 
         if (createdOrder != null && mounted) {
-          debugPrint('✅ [COD ORDER CREATED]: ${createdOrder.id}');
+          debugPrint('✅ [COD ORDER CONFIRMED]: ${createdOrder.id}');
           await cartProvider.clearCart(_authToken!);
 
           if (mounted) {
-            // Completely clear Cart -> Address -> Checkout navigation stack
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
-                builder: (context) => CodOrderConfirmedScreen(order: createdOrder),
+                builder: (context) => CodOrderConfirmedScreen(order: createdOrder!),
               ),
               (route) => false,
             );
           }
         } else {
-          throw 'The server could not create your order. Please try again.';
+          throw 'Server failed to finalize Cash on Delivery order. Please retry.';
         }
       } else {
-        // --- RAZORPAY ONLINE TEST PAYMENT FLOW ---
-        setState(() => _statusMessage = 'Creating Razorpay Test Order...');
+        // --- RAZORPAY ONLINE PAYMENT FLOW ---
+        setState(() => _statusMessage = 'Creating Razorpay Order...');
         final paymentService = PaymentService();
         final rzpOrderRes = await paymentService.createRazorpayOrder(checkoutGrandTotal, _authToken!);
 
         _currentRzpOrderId = rzpOrderRes['orderId'];
         final String keyId = rzpOrderRes['keyId'];
         final int rzpOrderAmount = rzpOrderRes['amount'];
-
-        debugPrint("RAZORPAY ORDER AMOUNT: $rzpOrderAmount");
 
         var options = {
           'key': keyId,
@@ -151,23 +171,38 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
           'send_sms_hash': true,
         };
 
-        setState(() => _statusMessage = 'Opening Razorpay Gateway...');
+        setState(() => _statusMessage = 'Opening Razorpay Payment Gateway...');
         _razorpay.open(options);
       }
     } catch (e) {
       debugPrint('❌ [Checkout Error]: $e');
       if (mounted) {
-        _handleErrorAndExit(e.toString());
+        _handleCheckoutError(e.toString());
       }
     }
+  }
+
+  OrderModel? _findExistingOrder(List<OrderModel> orders) {
+    if (_preparedOrderData == null) return null;
+    final total = (_preparedOrderData!['totalPrice'] as num).toDouble();
+
+    for (var o in orders) {
+      if ((o.totalPrice - total).abs() < 1.0) {
+        final diff = DateTime.now().difference(o.createdAt);
+        if (diff.inMinutes < 10) {
+          return o;
+        }
+      }
+    }
+    return null;
   }
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     debugPrint('RAZORPAY PAYMENT CALLBACK RECEIVED');
     debugPrint('Payment ID: ${response.paymentId}');
-    debugPrint('Order ID: ${response.orderId}');
 
     setState(() {
+      _isProcessing = true;
       _statusMessage = 'Verifying Payment Signature with Server...';
     });
 
@@ -181,8 +216,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
         token: _authToken!,
       );
 
-      debugPrint('RAZORPAY PAYMENT VERIFIED');
-      debugPrint('ORDER PAYMENT STATUS UPDATED');
+      debugPrint('RAZORPAY PAYMENT VERIFIED & ORDER FINALIZED');
 
       if (mounted) {
         final cartProvider = context.read<CartProvider>();
@@ -193,7 +227,6 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
               ? createdOrder.id.substring(createdOrder.id.length - 6).toUpperCase()
               : createdOrder.id.toUpperCase();
 
-          // Completely clear Cart -> Address -> Checkout navigation stack
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
@@ -201,7 +234,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
                 amount: createdOrder.totalPrice,
                 paymentId: response.paymentId ?? 'RP_${DateTime.now().millisecondsSinceEpoch}',
                 orderId: shortOrderId,
-                method: 'Razorpay Online (TEST MODE)',
+                method: 'Razorpay Online',
               ),
             ),
             (route) => false,
@@ -211,15 +244,15 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
     } catch (e) {
       debugPrint('❌ [Signature Verification Failed]: $e');
       if (mounted) {
-        _handleErrorAndExit('Payment Verification Failed: $e');
+        _handleCheckoutError('Payment Verification Failed: $e');
       }
     }
   }
 
   void _handlePaymentError(PaymentFailureResponse response) {
-    debugPrint('❌ [RAZORPAY PAYMENT FAILED / CANCELLED]: Code ${response.code} | ${response.message}');
+    debugPrint('❌ [RAZORPAY PAYMENT FAILED]: ${response.code} | ${response.message}');
     if (mounted) {
-      _handleErrorAndExit('Payment Cancelled or Failed. ${response.message ?? ""}');
+      _handleCheckoutError('Payment Cancelled or Failed: ${response.message ?? ""}');
     }
   }
 
@@ -227,44 +260,114 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
     debugPrint('External Wallet Selected: ${response.walletName}');
   }
 
-  void _handleErrorAndExit(String message) {
-    String errorMsg = message;
-    if (errorMsg.contains('Exception:')) {
+  void _handleCheckoutError(String rawError) {
+    String errorMsg = rawError;
+    if (errorMsg.contains('receive timeout')) {
+      errorMsg = 'Connection Timeout: The server took too long to respond. Please verify your network and tap Retry.';
+    } else if (errorMsg.contains('connectionTimeout') || errorMsg.contains('connection error')) {
+      errorMsg = 'Connection Error: Could not reach the server. Please check your internet connection.';
+    } else if (errorMsg.contains('Exception:')) {
       errorMsg = errorMsg.split('Exception:')[1].trim();
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(errorMsg),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 4),
-      ),
-    );
-
-    Navigator.pop(context); // Return user to Checkout screen so they can retry
+    setState(() {
+      _isProcessing = false;
+      _errorMessage = errorMsg;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.gold),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.isCod ? 'Cash on Delivery Checkout' : 'Online Payment Checkout',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (!widget.isCod) ...[
-                const Icon(Icons.payment, color: AppColors.gold, size: 50),
-                const SizedBox(height: 24),
+              const SizedBox(height: 40),
+              
+              if (_isProcessing) ...[
+                const Icon(Icons.payment_outlined, color: AppColors.gold, size: 60),
+                const SizedBox(height: 28),
+                const CircularProgressIndicator(color: AppColors.gold),
+                const SizedBox(height: 32),
+                Text(
+                  _statusMessage,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Please do not close or leave the app during checkout.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.grey, fontSize: 13),
+                ),
+              ] else ...[
+                const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 64),
+                const SizedBox(height: 20),
+                const Text(
+                  'Checkout Could Not Complete',
+                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    _errorMessage ?? 'An unexpected error occurred during checkout.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _startCheckoutProcess,
+                    icon: const Icon(Icons.refresh, color: Colors.black),
+                    label: const Text('RETRY CHECKOUT', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.gold,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.grey,
+                      side: const BorderSide(color: AppColors.grey),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('BACK TO CART'),
+                  ),
+                ),
               ],
-              const CircularProgressIndicator(color: AppColors.gold),
-              const SizedBox(height: 32),
-              Text(
-                _statusMessage,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
-              ),
+              const SizedBox(height: 40),
             ],
           ),
         ),

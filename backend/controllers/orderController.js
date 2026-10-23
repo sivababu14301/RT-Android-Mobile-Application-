@@ -72,6 +72,7 @@ const getStatusNotificationContent = (status, orderId) => {
 const addOrderItems = async (req, res) => {
   try {
     const {
+      idempotencyKey,
       orderItems,
       shippingAddress,
       paymentMethod,
@@ -82,6 +83,24 @@ const addOrderItems = async (req, res) => {
 
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({ success: false, message: 'No order items provided' });
+    }
+
+    // Deduplication check: Prevent duplicate orders on network retries
+    if (idempotencyKey || req.user?._id) {
+      const existingOrder = await Order.findOne({
+        user: req.user._id,
+        paymentMethod,
+        totalPrice,
+        createdAt: { $gte: new Date(Date.now() - 10 * 60 * 1000) } // Created in last 10 minutes
+      });
+      if (existingOrder) {
+        console.log(`ℹ️ [Order Controller] Idempotency Match Found: Existing Order ${existingOrder._id}`);
+        return res.status(200).json({
+          success: true,
+          order: existingOrder,
+          message: 'Existing order retrieved successfully'
+        });
+      }
     }
 
     // Validate stock
