@@ -28,7 +28,6 @@ class CartProvider with ChangeNotifier {
     return _items.fold(0.0, (sum, item) => sum + item.total);
   }
 
-  // Alias for compatibility
   double get totalAmount => subtotal;
 
   Future<void> fetchCart(String token) async {
@@ -37,19 +36,19 @@ class CartProvider with ChangeNotifier {
     try {
       final service = CartService(token);
       final response = await service.getCart();
-      
-      debugPrint("GET CART RESPONSE: ${response.data}");
 
       if (response.statusCode == 200 && response.data['success'] == true) {
         final List itemsJson = response.data['cart']['items'] ?? [];
-        _items = itemsJson.map((item) {
-          return CartItemModel(
-            product: Product.fromJson(item['productId']),
-            quantity: item['quantity'],
-            size: item['size'],
-            color: item['color'],
-          );
-        }).toList();
+        _items = itemsJson
+            .where((item) => item != null && item['productId'] != null)
+            .map((item) {
+              return CartItemModel(
+                product: Product.fromJson(item['productId']),
+                quantity: item['quantity'] ?? 1,
+                size: item['size'],
+                color: item['color'],
+              );
+            }).toList();
       }
     } catch (e) {
       debugPrint("Error fetching cart: $e");
@@ -59,16 +58,15 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> addToCart(Product product, String token, {int quantity = 1, String? size, String? color}) async {
+  Future<Map<String, dynamic>> addToCart(Product product, String token, {int quantity = 1, String? size, String? color}) async {
     try {
       final service = CartService(token);
       final response = await service.addToCart(product.id, quantity, size: size, color: color);
-      
+
       debugPrint("CART ADD STATUS: ${response.statusCode}");
       debugPrint("CART ADD RESPONSE: ${response.data}");
 
       if ((response.statusCode == 200 || response.statusCode == 201) && response.data['success'] == true) {
-        // Update local state or re-fetch
         final existingIndex = _items.indexWhere((item) => 
           item.product.id == product.id && 
           item.size == size && 
@@ -81,12 +79,20 @@ class CartProvider with ChangeNotifier {
           _items.add(CartItemModel(product: product, quantity: quantity, size: size, color: color));
         }
         notifyListeners();
-        return true;
+        return {
+          'success': true,
+          'message': response.data['message'] ?? '${product.name} added to cart'
+        };
       }
-      return false;
+
+      String errorMsg = 'Failed to add item to cart';
+      if (response.data is Map && response.data['message'] != null) {
+        errorMsg = response.data['message'];
+      }
+      return {'success': false, 'message': errorMsg};
     } catch (e) {
       debugPrint("Error adding to cart: $e");
-      return false;
+      return {'success': false, 'message': e.toString()};
     }
   }
 
@@ -138,6 +144,5 @@ class CartProvider with ChangeNotifier {
     }
   }
 
-  // Alias for compatibility
   void clear(String token) => clearCart(token);
 }

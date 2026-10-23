@@ -69,7 +69,7 @@ class _ReorderScreenState extends State<ReorderScreen> {
 
     if (mounted) {
       setState(() => _isAddingToCart = false);
-      if (success) {
+      if (success['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${item.name} added to cart!'),
