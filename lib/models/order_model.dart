@@ -58,7 +58,9 @@ class OrderModel {
       paidAt: json['paidAt'] != null ? DateTime.tryParse(json['paidAt'].toString()) : null,
       isDelivered: json['isDelivered'] ?? false,
       deliveredAt: json['deliveredAt'] != null ? DateTime.tryParse(json['deliveredAt'].toString()) : null,
-      status: json['status'] ?? 'Order Placed',
+      status: (json['status'] != null && json['status'].toString().trim().isNotEmpty)
+          ? json['status'].toString().trim()
+          : 'Order Placed',
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now() : DateTime.now(),
       statusHistory: json['statusHistory'] != null
           ? (json['statusHistory'] as List)
@@ -111,8 +113,13 @@ class OrderItem {
     required this.product,
   });
 
-  // Alias for compatibility
-  String get imageUrl => image.startsWith('http') ? image : '${ApiConfig.baseServerUrl}${image.startsWith('/') ? '' : '/'}$image';
+  String get imageUrl {
+    if (image.trim().isEmpty) return '';
+    if (image.startsWith('data:image/') || image.startsWith('http://') || image.startsWith('https://')) {
+      return image;
+    }
+    return '${ApiConfig.baseServerUrl}${image.startsWith('/') ? '' : '/'}$image';
+  }
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
