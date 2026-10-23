@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
@@ -359,7 +358,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(15),
                       border: Border.all(color: Colors.white10),
                       boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5)),
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5)),
                       ],
                     ),
                     child: TextField(
@@ -508,7 +507,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           Consumer<ProductProvider>(
             builder: (context, provider, child) {
-              final products = provider.newArrivals;
+              final products = provider.products.isNotEmpty ? provider.products : provider.newArrivals;
               if (provider.isLoading && products.isEmpty) {
                 return const SliverToBoxAdapter(
                   child: Center(child: CircularProgressIndicator(color: AppColors.gold)),
@@ -530,14 +529,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) => ProductCard(product: products[index]),
-                    childCount: min(products.length, 6),
+                    childCount: products.length,
                   ),
                 ),
               );
             },
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),
     );
