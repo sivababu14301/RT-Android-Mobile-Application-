@@ -71,9 +71,9 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
       case PaymentMethodType.paytm:
         return 'Paytm UPI/Wallet';
       case PaymentMethodType.bhimUpi:
-        return 'BHIM/UPI';
+        return 'BHIM / UPI ID';
       case PaymentMethodType.card:
-        return 'Card';
+        return 'Credit / Debit Card';
       case PaymentMethodType.netBanking:
         return 'Net Banking';
       case PaymentMethodType.razorpay:
@@ -83,21 +83,82 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
     }
   }
 
-  String? _getRazorpayMethodHint() {
+  Map<String, dynamic> _buildRazorpayOptions({
+    required String keyId,
+    required int rzpOrderAmount,
+    required String orderId,
+    required UserProvider userProvider,
+  }) {
+    final String userMobile = userProvider.user?.mobile ?? '';
+    final String userEmail = userProvider.user?.email ?? '';
+    final String userName = userProvider.user?.fullName ?? '';
+
+    final Map<String, dynamic> prefillMap = {
+      'contact': userMobile,
+      'email': userEmail,
+      'name': userName,
+    };
+
+    final options = <String, dynamic>{
+      'key': keyId,
+      'amount': rzpOrderAmount,
+      'name': 'RT - Raymaans Tailors',
+      'description': 'Order Payment via ${_getPaymentMethodLabel()}',
+      'order_id': orderId,
+      'prefill': prefillMap,
+      'theme': {
+        'color': '#D4AF37', // Gold branding
+      },
+      'retry': {
+        'enabled': true,
+        'max_count': 3,
+      },
+      'send_sms_hash': true,
+    };
+
     switch (widget.preferredMethod) {
       case PaymentMethodType.googlePay:
+        options['method'] = 'upi';
+        options['upi'] = {
+          'flow': 'intent',
+          'app': 'com.google.android.apps.nbu.paisa.user',
+        };
+        break;
+
       case PaymentMethodType.phonePe:
+        options['method'] = 'upi';
+        options['upi'] = {
+          'flow': 'intent',
+          'app': 'com.phonepe.app',
+        };
+        break;
+
       case PaymentMethodType.paytm:
+        options['method'] = 'upi';
+        options['upi'] = {
+          'flow': 'intent',
+          'app': 'net.one97.paytm',
+        };
+        break;
+
       case PaymentMethodType.bhimUpi:
-        return 'upi';
+        options['method'] = 'upi';
+        break;
+
       case PaymentMethodType.card:
-        return 'card';
+        options['method'] = 'card';
+        break;
+
       case PaymentMethodType.netBanking:
-        return 'netbanking';
+        options['method'] = 'netbanking';
+        break;
+
       case PaymentMethodType.razorpay:
       case PaymentMethodType.cod:
-        return null;
+        break;
     }
+
+    return options;
   }
 
   Future<void> _startCheckoutProcess() async {
@@ -106,7 +167,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
       _errorMessage = null;
       _statusMessage = widget.isCod
           ? 'Validating order and address details...'
-          : 'Initializing ${_getPaymentMethodLabel()} gateway...';
+          : 'Initializing ${_getPaymentMethodLabel()} checkout...';
     });
 
     try {
@@ -196,41 +257,12 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
         final String keyId = rzpOrderRes['keyId'];
         final int rzpOrderAmount = rzpOrderRes['amount'];
 
-        final String? methodHint = _getRazorpayMethodHint();
-
-        Map<String, dynamic> prefillMap = {
-          'contact': userProvider.user?.mobile ?? '',
-          'email': userProvider.user?.email ?? '',
-          'name': userProvider.user?.fullName ?? '',
-        };
-
-        if (methodHint != null) {
-          prefillMap['method'] = methodHint;
-        }
-
-        var options = <String, dynamic>{
-          'key': keyId,
-          'amount': rzpOrderAmount,
-          'name': 'RT - Raymaans Tailors',
-          'description': 'Order Payment via ${_getPaymentMethodLabel()}',
-          'order_id': _currentRzpOrderId,
-          'prefill': prefillMap,
-          'theme': {
-            'color': '#D4AF37', // Gold branding
-          },
-          'retry': {
-            'enabled': true,
-            'max_count': 3,
-          },
-          'send_sms_hash': true,
-        };
-
-        // Pass UPI specific intent configuration if selected
-        if (methodHint == 'upi') {
-          options['upi'] = {
-            'flow': 'intent',
-          };
-        }
+        final options = _buildRazorpayOptions(
+          keyId: keyId,
+          rzpOrderAmount: rzpOrderAmount,
+          orderId: _currentRzpOrderId!,
+          userProvider: userProvider,
+        );
 
         setState(() => _statusMessage = 'Launching ${_getPaymentMethodLabel()}...');
         _razorpay.open(options);
@@ -312,8 +344,18 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
 
   void _handlePaymentError(PaymentFailureResponse response) {
     debugPrint('❌ [RAZORPAY PAYMENT FAILED]: ${response.code} | ${response.message}');
+    String message = response.message ?? 'Payment failed or was cancelled.';
+
+    if (response.code == Razorpay.PAYMENT_CANCELLED) {
+      message = 'Payment was cancelled. You can retry or choose another payment method.';
+    } else if (response.code == Razorpay.NETWORK_ERROR) {
+      message = 'Network Error: Please check your internet connection and try again.';
+    } else if (message.toLowerCase().contains('app not found') || message.toLowerCase().contains('app not installed')) {
+      message = 'The selected UPI app is not installed on this device. Please select another payment option or enter a UPI ID.';
+    }
+
     if (mounted) {
-      _handleCheckoutError('Payment Cancelled or Failed: ${response.message ?? ""}');
+      _handleCheckoutError(message);
     }
   }
 
