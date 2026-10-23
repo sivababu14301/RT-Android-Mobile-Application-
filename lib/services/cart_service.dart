@@ -10,8 +10,9 @@ class CartService {
       : _dio = Dio(BaseOptions(
           baseUrl: _baseUrl,
           headers: {'Authorization': 'Bearer $token'},
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 60),
+          sendTimeout: const Duration(seconds: 60),
           validateStatus: (status) => true,
         )) {
     _dio.interceptors.add(ApiConfig.retryInterceptor);

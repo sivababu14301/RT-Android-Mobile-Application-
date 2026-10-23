@@ -17,8 +17,6 @@ import '../cart/cart_screen.dart';
 import '../measurements/measurement_screen.dart';
 import '../measurements/shirt_measurement_screen.dart';
 import '../measurements/pant_measurement_screen.dart';
-import '../payment/address_screen.dart';
-import '../payment/payment_processing_screen.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final Product product;
@@ -211,6 +209,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Future<void> _buyNow() async {
+    if (_isAddingToCart) return;
+
     if (widget.product.stock <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('This product is Out of Stock'), backgroundColor: AppColors.error),
@@ -242,33 +242,37 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       return;
     }
 
-    // Direct Buy Now checkout flow
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
-    final result = await cartProvider.addToCart(
-      widget.product,
-      token,
-      quantity: _quantity,
-      size: _selectedSize,
-      color: _selectedColor,
-    );
+    setState(() => _isAddingToCart = true);
 
-    if (mounted) {
-      if (result['success'] == true) {
-        final address = userProvider.user?.address;
-        if (address == null || address.fullAddress.trim().isEmpty) {
+    try {
+      final cartProvider = Provider.of<CartProvider>(context, listen: false);
+      final result = await cartProvider.addToCart(
+        widget.product,
+        token,
+        quantity: _quantity,
+        size: _selectedSize,
+        color: _selectedColor,
+      );
+
+      if (mounted) {
+        setState(() => _isAddingToCart = false);
+        if (result['success'] == true) {
+          // Standard Shopping Flow: Product Details -> Buy Now -> Cart -> Checkout -> Select Payment Method -> Place Order
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const AddressScreen()),
+            MaterialPageRoute(builder: (context) => const CartScreen()),
           );
         } else {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const PaymentProcessingScreen(isCod: false)),
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result['message'] ?? 'Could not add item to cart'), backgroundColor: AppColors.error),
           );
         }
-      } else {
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isAddingToCart = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? 'Could not proceed to checkout'), backgroundColor: AppColors.error),
+          SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
         );
       }
     }
