@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/payment_model.dart';
 
 class PaymentProvider with ChangeNotifier {
-  PaymentMethodType _selectedMethod = PaymentMethodType.googlePay;
+  PaymentMethodType _selectedMethod = PaymentMethodType.cod;
 
   PaymentMethodType get selectedMethod => _selectedMethod;
 
@@ -12,7 +12,7 @@ class PaymentProvider with ChangeNotifier {
   }
 
   void reset() {
-    _selectedMethod = PaymentMethodType.googlePay;
+    _selectedMethod = PaymentMethodType.cod;
     notifyListeners();
   }
 }
