@@ -260,6 +260,14 @@ const updateOrderStatus = async (req, res) => {
     const order = await Order.findById(req.params.id);
 
     if (order) {
+      // Disallow status updates if order was already cancelled
+      if (order.status === 'Cancelled') {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot update status for a cancelled order.'
+        });
+      }
+
       const previousStatus = order.status || '';
 
       // Prevent duplicate notification if status hasn't changed
@@ -322,56 +330,73 @@ const cancelOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
-    if (order) {
-      if (order.user.toString() !== req.user._id.toString()) {
-        return res.status(401).json({ success: false, message: 'Not authorized to cancel this order' });
-      }
-
-      const cancellableStatuses = ['Pending', 'Order Placed', 'Confirmed', 'Order Confirmed'];
-      if (!cancellableStatuses.includes(order.status)) {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot cancel order in '${order.status}' status. Tailoring may have already started.`
-        });
-      }
-
-      // Restore stock
-      if (order.orderItems && order.orderItems.length > 0) {
-        for (const item of order.orderItems) {
-          const pId = item.product || item.productId || item._id;
-          const qty = item.quantity || item.qty || 1;
-          await Product.findByIdAndUpdate(pId, { $inc: { stock: qty } });
-        }
-      }
-
-      order.status = 'Cancelled';
-
-      const { date, time, updatedAt } = formatDateTime(new Date());
-      if (!order.statusHistory) order.statusHistory = [];
-      order.statusHistory.push({ status: 'Cancelled', date, time, updatedAt });
-
-      const updatedOrder = await order.save();
-
-      try {
-        const notifContent = getStatusNotificationContent('Cancelled', order._id);
-        await Notification.create({
-          userId: order.user,
-          orderId: order._id,
-          title: notifContent.title,
-          message: notifContent.message,
-          type: 'order_status',
-          sender: 'system',
-          isRead: false
-        });
-      } catch (notifErr) {
-        console.error('❌ CANCEL NOTIFICATION ERROR:', notifErr.message);
-      }
-
-      res.json({ success: true, order: updatedOrder });
-    } else {
-      res.status(404).json({ success: false, message: 'Order not found' });
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
     }
+
+    if (order.user.toString() !== req.user._id.toString()) {
+      return res.status(401).json({ success: false, message: 'Not authorized to cancel this order' });
+    }
+
+    // Business Rule: A customer can cancel ONLY an order that is still in 'Order Placed' or 'Pending' status.
+    const cancellableStatuses = ['Order Placed', 'Pending'];
+    if (!cancellableStatuses.includes(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'This order can no longer be cancelled because processing has started.'
+      });
+    }
+
+    // Atomic update to prevent simultaneous race conditions with admin confirmation
+    const { date, time, updatedAt } = formatDateTime(new Date());
+
+    const updatedOrder = await Order.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        user: req.user._id,
+        status: { $in: ['Order Placed', 'Pending'] }
+      },
+      {
+        $set: { status: 'Cancelled' },
+        $push: { statusHistory: { status: 'Cancelled', date, time, updatedAt } }
+      },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(400).json({
+        success: false,
+        message: 'This order can no longer be cancelled because processing has started.'
+      });
+    }
+
+    // Restore product stock
+    if (updatedOrder.orderItems && updatedOrder.orderItems.length > 0) {
+      for (const item of updatedOrder.orderItems) {
+        const pId = item.product || item.productId || item._id;
+        const qty = item.quantity || item.qty || 1;
+        await Product.findByIdAndUpdate(pId, { $inc: { stock: qty } });
+      }
+    }
+
+    try {
+      const notifContent = getStatusNotificationContent('Cancelled', updatedOrder._id);
+      await Notification.create({
+        userId: updatedOrder.user,
+        orderId: updatedOrder._id,
+        title: notifContent.title,
+        message: notifContent.message,
+        type: 'order_status',
+        sender: 'system',
+        isRead: false
+      });
+    } catch (notifErr) {
+      console.error('❌ CANCEL NOTIFICATION ERROR:', notifErr.message);
+    }
+
+    res.json({ success: true, order: updatedOrder });
   } catch (error) {
+    console.error('CANCEL ORDER ERROR:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

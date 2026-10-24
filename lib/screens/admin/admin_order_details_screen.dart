@@ -159,31 +159,36 @@ class _AdminOrderDetailsScreenState extends State<AdminOrderDetailsScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () async {
-                      final String? newStatus = await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => UpdateOrderStatusScreen(currentStatus: order.status)),
-                      );
-                      
-                      if (newStatus != null && context.mounted) {
-                        final token = context.read<AdminProvider>().admin?.token;
-                        if (token != null) {
-                          final success = await context.read<OrderProvider>().updateStatus(order.id, newStatus, token);
-                          if (success && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Order status updated to $newStatus'), backgroundColor: Colors.green),
+                    onPressed: order.status == 'Cancelled'
+                        ? null
+                        : () async {
+                            final String? newStatus = await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => UpdateOrderStatusScreen(currentStatus: order.status)),
                             );
-                          }
-                        }
-                      }
-                    },
+                            
+                            if (newStatus != null && context.mounted) {
+                              final token = context.read<AdminProvider>().admin?.token;
+                              if (token != null) {
+                                final success = await context.read<OrderProvider>().updateStatus(order.id, newStatus, token);
+                                if (success && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Order status updated to $newStatus'), backgroundColor: Colors.green),
+                                  );
+                                }
+                              }
+                            }
+                          },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
+                      backgroundColor: order.status == 'Cancelled' ? AppColors.card : Colors.blue,
+                      foregroundColor: order.status == 'Cancelled' ? AppColors.grey : Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 15),
                     ),
-                    child: const Text('UPDATE ORDER STATUS', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      order.status == 'Cancelled' ? 'ORDER CANCELLED (CANNOT UPDATE)' : 'UPDATE ORDER STATUS',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 40),

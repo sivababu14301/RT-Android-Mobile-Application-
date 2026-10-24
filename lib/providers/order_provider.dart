@@ -42,14 +42,14 @@ class OrderProvider with ChangeNotifier {
       return null;
     } catch (e) {
       debugPrint('Error placing order: $e');
-      rethrow; // Rethrow to allow UI to catch and show the error
+      rethrow;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<bool> cancelOrder(String id, String token) async {
+  Future<Map<String, dynamic>> cancelOrder(String id, String token) async {
     try {
       final service = OrderService(token);
       final response = await service.cancelOrder(id);
@@ -59,12 +59,23 @@ class OrderProvider with ChangeNotifier {
           _orders[index] = OrderModel.fromJson(response.data['order']);
           notifyListeners();
         }
-        return true;
+        return {
+          'success': true,
+          'message': 'Order Cancelled Successfully',
+        };
       }
-      return false;
+
+      String errorMsg = 'This order can no longer be cancelled because processing has started.';
+      if (response.data is Map && response.data['message'] != null) {
+        errorMsg = response.data['message'];
+      }
+      return {'success': false, 'message': errorMsg};
     } catch (e) {
       debugPrint('Error cancelling order: $e');
-      return false;
+      return {
+        'success': false,
+        'message': 'This order can no longer be cancelled because processing has started.',
+      };
     }
   }
 

@@ -16,37 +16,46 @@ class OrderDetailsScreen extends StatelessWidget {
   void _showCancelConfirmation(BuildContext context, OrderModel displayOrder) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Cancel Order?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: const Text(
-          'Are you sure you want to cancel this order? This action cannot be undone.',
+          'Are you sure you want to cancel this order?',
           style: TextStyle(color: AppColors.grey),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('NO, KEEP IT', style: TextStyle(color: AppColors.grey)),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('NO, KEEP ORDER', style: TextStyle(color: AppColors.grey)),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               final token = context.read<UserProvider>().user?.token;
               if (token != null) {
-                final success = await context.read<OrderProvider>().cancelOrder(displayOrder.id, token);
-                if (success && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Order Cancelled Successfully'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                final result = await context.read<OrderProvider>().cancelOrder(displayOrder.id, token);
+                if (context.mounted) {
+                  if (result['success'] == true) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(result['message'] ?? 'Order Cancelled Successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(result['message'] ?? 'This order can no longer be cancelled because processing has started.'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
                 }
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('YES, CANCEL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text('YES, CANCEL ORDER', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -76,10 +85,12 @@ class OrderDetailsScreen extends StatelessWidget {
           try {
             displayOrder = provider.orders.firstWhere((o) => o.id == order.id);
           } catch (e) {
-            displayOrder = order; // Fallback to initial order
+            displayOrder = order; // Fallback
           }
 
-          final bool isCancellable = displayOrder.status == 'Pending' || displayOrder.status == 'Confirmed';
+          final String cleanStatus = displayOrder.status.trim().toLowerCase();
+          // Business rule: Cancellation allowed ONLY while order is in 'Order Placed' or 'Pending' status
+          final bool isCancellable = (cleanStatus == 'order placed' || cleanStatus == 'pending') && !displayOrder.isDelivered;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -93,7 +104,7 @@ class OrderDetailsScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Order ID: #${displayOrder.id.substring(displayOrder.id.length - 6).toUpperCase()}',
+                          'Order ID: #${displayOrder.id.length > 6 ? displayOrder.id.substring(displayOrder.id.length - 6).toUpperCase() : displayOrder.id.toUpperCase()}',
                           style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
@@ -143,7 +154,7 @@ class OrderDetailsScreen extends StatelessWidget {
                               height: 70,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.error, color: AppColors.gold),
+                                  const Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 30),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -230,6 +241,8 @@ class OrderDetailsScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 40),
+
+                // Show Cancel Order button ONLY when order is still in 'Order Placed' or 'Pending' status
                 if (isCancellable)
                   SizedBox(
                     width: double.infinity,
@@ -237,10 +250,10 @@ class OrderDetailsScreen extends StatelessWidget {
                     child: OutlinedButton(
                       onPressed: () => _showCancelConfirmation(context, displayOrder),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red),
+                        side: const BorderSide(color: Colors.red, width: 1.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                       ),
-                      child: const Text('CANCEL ORDER', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                      child: const Text('CANCEL ORDER', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, letterSpacing: 1)),
                     ),
                   ),
                 const SizedBox(height: 20),
