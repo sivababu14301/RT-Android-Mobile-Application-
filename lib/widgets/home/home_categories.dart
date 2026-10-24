@@ -1,204 +1,125 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
-import '../../models/category_model.dart';
-import '../../providers/category_provider.dart';
-import '../../screens/categories_screen.dart';
-import '../../screens/products/product_list_screen.dart';
+import '../../providers/product_provider.dart';
 
-class HomeCategories extends StatefulWidget {
+class HomeCategories extends StatelessWidget {
   const HomeCategories({super.key});
 
-  @override
-  State<HomeCategories> createState() => _HomeCategoriesState();
-}
-
-class _HomeCategoriesState extends State<HomeCategories> {
-  // Standard 7 Categories in exact specified order
-  final List<CategoryModel> _standard7Categories = [
-    CategoryModel(id: '1', name: 'Pants', description: 'Custom tailored pants, trousers and jeans'),
-    CategoryModel(id: '2', name: 'Shirts', description: 'Custom tailored casual and everyday shirts'),
-    CategoryModel(id: '3', name: 'T-Shirts', description: 'Premium fitted T-shirts and polo shirts'),
-    CategoryModel(id: '4', name: 'Formal Shirts', description: 'Luxury formal dress shirts'),
-    CategoryModel(id: '5', name: 'Suits', description: 'Bespoke tailored suits and blazers'),
-    CategoryModel(id: '6', name: 'Wedding Wear', description: 'Royal wedding tuxedos and ethnic wear'),
-    CategoryModel(id: '7', name: 'Uniforms', description: 'Custom corporate and school uniforms'),
+  final List<String> _categories = const [
+    'Pants',
+    'Shirts',
+    'T-Shirts',
+    'Formal Shirts',
+    'Suits',
+    'Wedding Wear',
+    'Uniforms',
   ];
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CategoryProvider>().fetchCategories();
-    });
-  }
-
-  List<CategoryModel> _getOrderedCategories(List<CategoryModel> fetched) {
-    if (fetched.isEmpty) return _standard7Categories;
-
-    final List<String> targetOrder = [
-      'pants',
-      'shirts',
-      't-shirts',
-      'formal shirts',
-      'suits',
-      'wedding wear',
-      'uniforms',
-    ];
-
-    final List<CategoryModel> result = [];
-    for (String target in targetOrder) {
-      final match = fetched.firstWhere(
-        (c) {
-          final name = c.name.trim().toLowerCase();
-          if (target == 't-shirts') return name.contains('t-shirt') || name.contains('tshirt');
-          if (target == 'formal shirts') return name.contains('formal shirt');
-          if (target == 'shirts') return name == 'shirts' || name == 'shirt';
-          if (target == 'pants') return name.contains('pant') || name.contains('trouser') || name.contains('jean');
-          if (target == 'suits') return name.contains('suit');
-          if (target == 'wedding wear') return name.contains('wedding');
-          if (target == 'uniforms') return name.contains('uniform');
-          return name == target;
-        },
-        orElse: () => _standard7Categories.firstWhere(
-          (sc) => sc.name.toLowerCase().contains(target.split(' ')[0]),
-        ),
-      );
-      if (!result.any((r) => r.name.toLowerCase() == match.name.toLowerCase())) {
-        result.add(match);
-      }
-    }
-
-    return result.length == 7 ? result : _standard7Categories;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header Row with Title and View All
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Categories',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const CategoriesScreen(),
+    return Consumer<ProductProvider>(
+      builder: (context, productProvider, child) {
+        final String selectedCat = productProvider.selectedCategory;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Row: Categories Title & View All Action
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Categories',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
                     ),
-                  );
-                },
-                child: const Row(
-                  children: [
-                    Text(
-                      'View All',
-                      style: TextStyle(
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      productProvider.resetToAll();
+                    },
+                    child: Text(
+                      selectedCat != 'All' ? 'Clear Filter' : 'All Products',
+                      style: const TextStyle(
                         color: AppColors.gold,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
                     ),
-                    SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.gold),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
+            ),
+            const SizedBox(height: 10),
 
-        Consumer<CategoryProvider>(
-          builder: (context, categoryProvider, child) {
-            final List<CategoryModel> categories = _getOrderedCategories(categoryProvider.categories);
-
-            return SizedBox(
-              height: 108,
+            // Single Horizontal Scrolling Row of Text-Only Pill Buttons
+            SizedBox(
+              height: 44,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: categories.length,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _categories.length,
                 itemBuilder: (context, index) {
-                  return _buildCategoryItem(context, categories[index]);
+                  final String category = _categories[index];
+                  final bool isSelected = (selectedCat.toLowerCase().trim() == category.toLowerCase().trim());
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 10.0),
+                    child: GestureDetector(
+                      onTap: () {
+                        if (isSelected) {
+                          productProvider.resetToAll();
+                        } else {
+                          productProvider.setCategory(category);
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.gold : Colors.black,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: AppColors.gold,
+                            width: 1.5,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.gold.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Center(
+                          child: Text(
+                            category,
+                            style: TextStyle(
+                              color: isSelected ? Colors.black : Colors.white,
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
                 },
               ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryItem(BuildContext context, CategoryModel category) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProductListScreen(initialCategory: category.name),
             ),
-          );
-        },
-        child: SizedBox(
-          width: 80,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.card,
-                  border: Border.all(color: AppColors.gold, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.gold.withValues(alpha: 0.15),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Icon(
-                    category.iconData,
-                    color: AppColors.gold,
-                    size: 30,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                category.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
+          ],
+        );
+      },
     );
   }
 }

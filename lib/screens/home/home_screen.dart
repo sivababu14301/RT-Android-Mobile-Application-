@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
 import '../../widgets/nav_drawer.dart';
 import '../../widgets/home_banner.dart';
-import '../../widgets/category_card.dart';
+import '../../widgets/home/home_categories.dart';
 import '../../widgets/home/exclusive_offers.dart';
 import '../../widgets/product_card.dart';
 import '../cart/cart_screen.dart';
@@ -426,55 +426,8 @@ class _HomeScreenState extends State<HomeScreen> {
           const SliverToBoxAdapter(child: SizedBox(height: 14)),
 
           // 3. CATEGORIES
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 4.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Categories', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  TextButton(
-                    onPressed: () {
-                      context.read<ProductProvider>().resetToAll();
-                      context.read<CustomerNavProvider>().setIndex(2);
-                    },
-                    child: const Text('View All', style: TextStyle(color: AppColors.gold)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 105,
-              child: Consumer<CategoryProvider>(
-                builder: (context, provider, child) {
-                  final categories = provider.categories.where((c) => c.isActive).toList();
-                  
-                  if (provider.isLoading && categories.isEmpty) {
-                    return const Center(child: CircularProgressIndicator(color: AppColors.gold));
-                  }
-
-                  if (categories.isEmpty) {
-                    return const Center(child: Text('No categories', style: TextStyle(color: AppColors.grey)));
-                  }
-
-                  return ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: categories.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == categories.length) {
-                        return _buildCategory(context, 'More', '⋯');
-                      }
-                      final cat = categories[index];
-                      return _buildCategory(context, cat.name, '', imageUrl: cat.image);
-                    },
-                  );
-                },
-              ),
-            ),
+          const SliverToBoxAdapter(
+            child: HomeCategories(),
           ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -540,40 +493,5 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildCategory(BuildContext context, String title, String emoji, {String? imageUrl}) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 16),
-      child: GestureDetector(
-        onTap: () {
-          if (title == 'More') {
-            context.read<ProductProvider>().resetToAll();
-            context.read<CustomerNavProvider>().setIndex(2);
-          } else {
-            final productProvider = context.read<ProductProvider>();
-            productProvider.setCategory(title);
-            context.read<CustomerNavProvider>().setIndex(2);
-          }
-        },
-        child: CategoryCard(
-          title: title,
-          emoji: (imageUrl == null || imageUrl.isEmpty) && title != 'More' ? _getEmojiForCategory(title) : null,
-          icon: title == 'More' ? Icons.more_horiz : null,
-          imageUrl: imageUrl,
-        ),
-      ),
-    );
-  }
-
-  String _getEmojiForCategory(String name) {
-    final n = name.toLowerCase();
-    if (n.contains('shirt')) return '👔';
-    if (n.contains('pant') || n.contains('paint')) return '👖';
-    if (n.contains('t-shirt') || n.contains('tshirt')) return '👕';
-    if (n.contains('suit')) return '🤵';
-    if (n.contains('wedding')) return '👑';
-    if (n.contains('uniform')) return '🎓';
-    return '📂';
   }
 }
