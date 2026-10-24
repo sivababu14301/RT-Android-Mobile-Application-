@@ -16,6 +16,32 @@ class HomeCategories extends StatelessWidget {
     'Uniforms',
   ];
 
+  IconData _getGoldClothingIcon(String category) {
+    final clean = category.trim().toLowerCase();
+    if (clean.contains('pant') || clean.contains('trouser') || clean.contains('jean')) {
+      return Icons.straighten; // Gold Trousers / Waistband
+    }
+    if (clean.contains('t-shirt') || clean.contains('tshirt')) {
+      return Icons.checkroom_outlined; // Gold T-Shirt
+    }
+    if (clean.contains('formal shirt')) {
+      return Icons.business_center_outlined; // Gold Formal Shirt & Tie
+    }
+    if (clean.contains('shirt')) {
+      return Icons.dry_cleaning_outlined; // Gold Casual / Formal Shirt
+    }
+    if (clean.contains('suit')) {
+      return Icons.military_tech_outlined; // Gold Suit / Blazer Lapel
+    }
+    if (clean.contains('wedding')) {
+      return Icons.celebration_outlined; // Gold Wedding Outfit / Tuxedo
+    }
+    if (clean.contains('uniform')) {
+      return Icons.badge_outlined; // Gold Uniform Clothing
+    }
+    return Icons.style_outlined;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ProductProvider>(
@@ -25,7 +51,7 @@ class HomeCategories extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Row: Categories Title & View All Action
+            // Header Row: Categories Title & Clear Filter Action
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
@@ -56,22 +82,23 @@ class HomeCategories extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
-            // Single Horizontal Scrolling Row of Text-Only Pill Buttons
+            // Single Horizontally Scrollable Row of Large Circular Black Badges with Centered Gold Clothing Icons
             SizedBox(
-              height: 44,
+              height: 110,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 itemCount: _categories.length,
                 itemBuilder: (context, index) {
                   final String category = _categories[index];
                   final bool isSelected = (selectedCat.toLowerCase().trim() == category.toLowerCase().trim());
+                  final IconData clothingIcon = _getGoldClothingIcon(category);
 
                   return Padding(
-                    padding: const EdgeInsets.only(right: 10.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: GestureDetector(
                       onTap: () {
                         if (isSelected) {
@@ -80,36 +107,58 @@ class HomeCategories extends StatelessWidget {
                           productProvider.setCategory(category);
                         }
                       },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.gold : Colors.black,
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: AppColors.gold,
-                            width: 1.5,
-                          ),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: AppColors.gold.withValues(alpha: 0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: Center(
-                          child: Text(
-                            category,
-                            style: TextStyle(
-                              color: isSelected ? Colors.black : Colors.white,
-                              fontSize: 13,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                              letterSpacing: 0.3,
+                      child: SizedBox(
+                        width: 78,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Large Circular Dark Badge (#080808) with Thin Gold Border & Glow
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 70,
+                              height: 70,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: const Color(0xFF080808),
+                                border: Border.all(
+                                  color: isSelected ? const Color(0xFFF0C94A) : AppColors.gold,
+                                  width: isSelected ? 2.2 : 1.3,
+                                ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.gold.withValues(alpha: 0.45),
+                                          blurRadius: 10,
+                                          spreadRadius: 1,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  clothingIcon,
+                                  color: isSelected ? const Color(0xFFF0C94A) : AppColors.gold,
+                                  size: isSelected ? 32 : 30,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 8),
+
+                            // Centered White Category Label
+                            Text(
+                              category,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: isSelected ? AppColors.gold : Colors.white,
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                letterSpacing: 0.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
                       ),
                     ),
