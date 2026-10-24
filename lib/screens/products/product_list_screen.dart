@@ -1,12 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
+import '../../models/product_model.dart';
 import 'package:rt_raymaans_tailors/providers/product_provider.dart';
 import 'package:rt_raymaans_tailors/providers/user_provider.dart';
 import 'package:rt_raymaans_tailors/providers/wishlist_provider.dart';
 import 'package:rt_raymaans_tailors/providers/fabric_provider.dart';
 import '../../widgets/category_chip.dart';
-import '../../widgets/product_card.dart';
+import 'product_details_screen.dart';
 
 class ProductListScreen extends StatefulWidget {
   final String? initialCategory;
@@ -287,6 +289,251 @@ class _ProductListScreenState extends State<ProductListScreen> {
     context.read<ProductProvider>().setSearchQuery(query);
   }
 
+  Widget _buildImagePlaceholder() {
+    return Container(
+      color: AppColors.gold.withValues(alpha: 0.12),
+      child: const Center(
+        child: Icon(Icons.checkroom_outlined, color: AppColors.gold, size: 36),
+      ),
+    );
+  }
+
+  Widget _buildProductThumbnail(Product product) {
+    final String imgUrl = product.imageUrl;
+    if (imgUrl.trim().isEmpty) {
+      return _buildImagePlaceholder();
+    }
+
+    if (imgUrl.startsWith('data:image/')) {
+      try {
+        final base64Str = imgUrl.split(',').last.trim();
+        final bytes = base64Decode(base64Str);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+        );
+      } catch (_) {
+        return _buildImagePlaceholder();
+      }
+    }
+
+    return Image.network(
+      imgUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+    );
+  }
+
+  Widget _buildVerticalProductCard(BuildContext context, Product product) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductDetailsScreen(product: product),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.gold.withValues(alpha: 0.2), width: 1.2),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black45,
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left: Product Image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 110,
+                height: 130,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: _buildProductThumbnail(product),
+                    ),
+                    // Rating Badge
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.75),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.gold.withValues(alpha: 0.6), width: 0.8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.star, color: AppColors.gold, size: 12),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${product.rating}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Right: Details Column
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          product.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Consumer<WishlistProvider>(
+                        builder: (context, wishlist, child) {
+                          final bool isFav = wishlist.isFavorite(product.id);
+                          return GestureDetector(
+                            onTap: () async {
+                              final token = context.read<UserProvider>().user?.token;
+                              if (token != null) {
+                                if (isFav) {
+                                  await wishlist.removeFromWishlist(product.id, token);
+                                } else {
+                                  await wishlist.addToWishlist(product, token);
+                                }
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Please login to use wishlist')),
+                                );
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 4.0),
+                              child: Icon(
+                                isFav ? Icons.favorite : Icons.favorite_border,
+                                color: isFav ? Colors.red : AppColors.gold,
+                                size: 22,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Price & Stock Tag
+                  Row(
+                    children: [
+                      Text(
+                        product.formattedPrice,
+                        style: const TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        product.stock > 0 ? 'In Stock' : 'Out of Stock',
+                        style: TextStyle(
+                          color: product.stock > 0 ? Colors.green : Colors.red,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Available Sizes
+                  if (product.displaySizes.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        const Text('Sizes: ', style: TextStyle(color: AppColors.grey, fontSize: 11)),
+                        Expanded(
+                          child: Text(
+                            product.displaySizes.take(4).join(', '),
+                            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+
+                  // Add to Cart Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 36,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ProductDetailsScreen(product: product),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.shopping_bag_outlined, color: Colors.black, size: 16),
+                      label: const Text(
+                        'ADD TO CART',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.gold,
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<ProductProvider>(
@@ -400,8 +647,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                // Responsive Product Grid
+                const SizedBox(height: 14),
+
+                // Full-width Vertical Scrolling Product List
                 Expanded(
                   child: provider.isLoading
                       ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
@@ -459,33 +707,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                 ),
                               ),
                             )
-                          : LayoutBuilder(
-                              builder: (context, constraints) {
-                                final double screenWidth = constraints.maxWidth;
-                                final double horizontalPadding = 32.0;
-                                final double crossAxisSpacing = 16.0;
-                                final double availableWidth = screenWidth - horizontalPadding - crossAxisSpacing;
-                                final double cardWidth = availableWidth / 2;
-
-                                final double detailsHeight = 68.0;
-                                final double imageHeight = cardWidth * 1.25;
-                                final double totalCardHeight = imageHeight + detailsHeight;
-                                final double dynamicAspectRatio = (cardWidth / totalCardHeight).clamp(0.55, 0.75);
-
-                                return GridView.builder(
-                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                                  physics: const BouncingScrollPhysics(),
-                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    childAspectRatio: dynamicAspectRatio,
-                                    crossAxisSpacing: crossAxisSpacing,
-                                    mainAxisSpacing: 16,
-                                  ),
-                                  itemCount: provider.products.length,
-                                  itemBuilder: (context, index) {
-                                    return ProductCard(product: provider.products[index]);
-                                  },
-                                );
+                          : ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: provider.products.length,
+                              itemBuilder: (context, index) {
+                                return _buildVerticalProductCard(context, provider.products[index]);
                               },
                             ),
                 ),
