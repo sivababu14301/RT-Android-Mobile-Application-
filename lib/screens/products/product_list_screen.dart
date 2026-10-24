@@ -21,14 +21,25 @@ class _ProductListScreenState extends State<ProductListScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
   String _selectedCategory = 'All';
-  final List<String> _categories = [
+
+  final List<String> _categories = const [
     'All',
-    'Shirts',
     'Pants',
+    'Shirts',
     'T-Shirts',
+    'Formal Shirts',
+    'Jeans',
+    'Trousers',
+    'Blazers',
     'Suits',
-    'Wedding Collection',
-    'Uniforms'
+    'Wedding Wear',
+    'School Uniforms',
+    'College Uniforms',
+    'Casual Wear',
+    'Traditional Wear',
+    'Shorts',
+    'Jackets',
+    'Accessories',
   ];
 
   final List<String> _selectedFilterCategories = [];
@@ -86,7 +97,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      _buildFilterSection('Category', ['Shirt', 'Pant', 'T-Shirt', 'Suit'], _selectedFilterCategories, setSheetState),
+                      _buildFilterSection('Category', ['Shirts', 'Pants', 'T-Shirts', 'Suits'], _selectedFilterCategories, setSheetState),
                       _buildFilterSection('Fabric', availableFabrics, _selectedFabrics, setSheetState),
                       const Text('Price', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
@@ -294,7 +305,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            automaticallyImplyLeading: false,
+            leading: Navigator.canPop(context)
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back, color: AppColors.gold),
+                    onPressed: () => Navigator.pop(context),
+                  )
+                : null,
             title: _isSearching
                 ? TextField(
                     controller: _searchController,
@@ -307,7 +323,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     ),
                     onSubmitted: _performSearch,
                   )
-                : const Text('Products', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
+                : Text(
+                    _selectedCategory == 'All' ? 'Products' : _selectedCategory,
+                    style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
+                  ),
             iconTheme: const IconThemeData(color: AppColors.gold),
             actions: [
               IconButton(
@@ -341,7 +360,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     itemBuilder: (context, index) {
                       return CategoryChip(
                         label: _categories[index],
-                        isSelected: _selectedCategory == _categories[index],
+                        isSelected: _selectedCategory.toLowerCase().trim() == _categories[index].toLowerCase().trim(),
                         onTap: () => _onCategorySelected(_categories[index]),
                       );
                     },
@@ -387,17 +406,67 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   child: provider.isLoading
                       ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
                       : provider.products.isEmpty
-                          ? const Center(child: Text('No products found', style: TextStyle(color: AppColors.grey)))
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(32.0),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(24),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.gold.withValues(alpha: 0.12),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.inventory_2_outlined,
+                                        size: 64,
+                                        color: AppColors.gold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    Text(
+                                      'No products available in $_selectedCategory',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    const Text(
+                                      'Explore our other custom tailored collections.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: AppColors.grey, fontSize: 13),
+                                    ),
+                                    const SizedBox(height: 28),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        context.read<ProductProvider>().resetToAll();
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.gold,
+                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      child: const Text(
+                                        'EXPLORE ALL PRODUCTS',
+                                        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
                           : LayoutBuilder(
                               builder: (context, constraints) {
                                 final double screenWidth = constraints.maxWidth;
-                                // Calculate dynamic card width and aspect ratio for any screen size
-                                final double horizontalPadding = 32.0; // 16 left + 16 right
+                                final double horizontalPadding = 32.0;
                                 final double crossAxisSpacing = 16.0;
                                 final double availableWidth = screenWidth - horizontalPadding - crossAxisSpacing;
                                 final double cardWidth = availableWidth / 2;
 
-                                // Details section takes ~68px, Image box scales with cardWidth * 1.25 (3:4 ratio)
                                 final double detailsHeight = 68.0;
                                 final double imageHeight = cardWidth * 1.25;
                                 final double totalCardHeight = imageHeight + detailsHeight;
