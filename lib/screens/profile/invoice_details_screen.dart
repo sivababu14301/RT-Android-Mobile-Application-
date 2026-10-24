@@ -1,19 +1,81 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../config/app_colors.dart';
 import '../../models/order_model.dart';
+import '../../services/invoice_service.dart';
 
-class InvoiceDetailsScreen extends StatelessWidget {
+class InvoiceDetailsScreen extends StatefulWidget {
   final OrderModel order;
 
   const InvoiceDetailsScreen({super.key, required this.order});
 
   @override
+  State<InvoiceDetailsScreen> createState() => _InvoiceDetailsScreenState();
+}
+
+class _InvoiceDetailsScreenState extends State<InvoiceDetailsScreen> {
+  bool _isDownloading = false;
+  File? _savedPdfFile;
+
+  Future<void> _handleDownloadPdf() async {
+    if (_isDownloading) return;
+    setState(() => _isDownloading = true);
+
+    try {
+      final pdfFile = await InvoiceService.generateInvoicePdf(widget.order);
+      setState(() {
+        _savedPdfFile = pdfFile;
+        _isDownloading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Invoice saved: ${pdfFile.path.split('/').last}'),
+            backgroundColor: AppColors.gold,
+            action: SnackBarAction(
+              label: 'OPEN',
+              textColor: Colors.black,
+              onPressed: () => InvoiceService.openPdf(pdfFile.path),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isDownloading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate PDF: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleSharePdf() async {
+    try {
+      final pdfFile = _savedPdfFile ?? await InvoiceService.generateInvoicePdf(widget.order);
+      _savedPdfFile = pdfFile;
+      await InvoiceService.sharePdf(pdfFile.path, pdfFile.path.split('/').last);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sharing PDF: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final String dateStr = DateFormat('yyyyMMdd').format(order.createdAt);
-    final String shortId = order.id.length >= 6 ? order.id.substring(order.id.length - 6).toUpperCase() : order.id.toUpperCase();
+    final String dateStr = DateFormat('yyyyMMdd').format(widget.order.createdAt);
+    final String shortId = widget.order.id.length >= 6
+        ? widget.order.id.substring(widget.order.id.length - 6).toUpperCase()
+        : widget.order.id.toUpperCase();
     final String invoiceNumber = 'INV-$dateStr-$shortId';
-    final bool isPaid = order.isPaid || order.status.toLowerCase() == 'delivered' || order.status.toLowerCase() == 'confirmed';
+    final bool isPaid = widget.order.isPaid ||
+        widget.order.status.toLowerCase() == 'delivered' ||
+        widget.order.status.toLowerCase() == 'confirmed';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -31,14 +93,7 @@ class InvoiceDetailsScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.download, color: AppColors.gold),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Invoice $invoiceNumber downloaded successfully!'),
-                  backgroundColor: AppColors.gold,
-                ),
-              );
-            },
+            onPressed: _handleDownloadPdf,
           ),
         ],
       ),
@@ -125,11 +180,11 @@ class InvoiceDetailsScreen extends StatelessWidget {
                             const SizedBox(height: 6),
                             Text('Invoice No: $invoiceNumber', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 2),
-                            Text('Date: ${DateFormat('dd MMM yyyy').format(order.createdAt)}', style: const TextStyle(color: AppColors.grey, fontSize: 11)),
+                            Text('Date: ${DateFormat('dd MMM yyyy').format(widget.order.createdAt)}', style: const TextStyle(color: AppColors.grey, fontSize: 11)),
                             const SizedBox(height: 2),
                             Text('Order Ref: #$shortId', style: const TextStyle(color: AppColors.grey, fontSize: 11)),
                             const SizedBox(height: 2),
-                            Text('Payment: ${order.paymentMethod}', style: const TextStyle(color: AppColors.grey, fontSize: 11)),
+                            Text('Payment: ${widget.order.paymentMethod.isNotEmpty ? widget.order.paymentMethod : "Cash on Delivery"}', style: const TextStyle(color: AppColors.grey, fontSize: 11)),
                             const SizedBox(height: 2),
                             Text(
                               'Status: ${isPaid ? "PAID" : "PENDING"}',
@@ -147,16 +202,16 @@ class InvoiceDetailsScreen extends StatelessWidget {
                             const Text('BILLED TO', style: TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                             const SizedBox(height: 6),
                             Text(
-                              order.shippingAddress.fullName.isNotEmpty ? order.shippingAddress.fullName : 'Valued Customer',
+                              widget.order.shippingAddress.fullName.isNotEmpty ? widget.order.shippingAddress.fullName : 'Valued Customer',
                               style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${order.shippingAddress.doorNumber}, ${order.shippingAddress.street},\n${order.shippingAddress.area}, ${order.shippingAddress.city}',
+                              '${widget.order.shippingAddress.doorNumber}, ${widget.order.shippingAddress.street},\n${widget.order.shippingAddress.area}, ${widget.order.shippingAddress.city}',
                               style: const TextStyle(color: AppColors.grey, fontSize: 11, height: 1.3),
                             ),
                             const SizedBox(height: 2),
-                            Text('Ph: ${order.shippingAddress.mobile}', style: const TextStyle(color: AppColors.grey, fontSize: 11)),
+                            Text('Ph: ${widget.order.shippingAddress.mobile}', style: const TextStyle(color: AppColors.grey, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -191,7 +246,7 @@ class InvoiceDetailsScreen extends StatelessWidget {
                           ),
                         ),
                         // Table Rows
-                        ...order.orderItems.map((item) {
+                        ...widget.order.orderItems.map((item) {
                           return Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             decoration: const BoxDecoration(
@@ -240,13 +295,13 @@ class InvoiceDetailsScreen extends StatelessWidget {
                         width: 200,
                         child: Column(
                           children: [
-                            _buildSummaryRow('Subtotal', '₹${order.itemsPrice.toInt()}'),
+                            _buildSummaryRow('Subtotal', '₹${widget.order.itemsPrice.toInt()}'),
                             const SizedBox(height: 6),
-                            _buildSummaryRow('Taxes (GST 5% Incl.)', '₹${(order.itemsPrice * 0.05).toInt()}'),
+                            _buildSummaryRow('Taxes (GST 5% Incl.)', '₹${(widget.order.itemsPrice * 0.05).toInt()}'),
                             const SizedBox(height: 6),
-                            _buildSummaryRow('Delivery Charge', order.shippingPrice > 0 ? '₹${order.shippingPrice.toInt()}' : 'FREE'),
+                            _buildSummaryRow('Delivery Charge', widget.order.shippingPrice > 0 ? '₹${widget.order.shippingPrice.toInt()}' : 'FREE'),
                             const Divider(color: Colors.white24, height: 16),
-                            _buildSummaryRow('Grand Total', '₹${order.totalPrice.toInt()}', isBold: true, valueColor: AppColors.gold),
+                            _buildSummaryRow('Grand Total', '₹${widget.order.totalPrice.toInt()}', isBold: true, valueColor: AppColors.gold),
                           ],
                         ),
                       ),
@@ -284,21 +339,19 @@ class InvoiceDetailsScreen extends StatelessWidget {
                   child: SizedBox(
                     height: 50,
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Invoice $invoiceNumber downloaded to device!'),
-                            backgroundColor: AppColors.gold,
-                          ),
-                        );
-                      },
+                      onPressed: _isDownloading ? null : _handleDownloadPdf,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.gold,
                         foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      icon: const Icon(Icons.file_download, color: Colors.black, size: 18),
-                      label: const Text('DOWNLOAD PDF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      icon: _isDownloading
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2))
+                          : const Icon(Icons.file_download, color: Colors.black, size: 18),
+                      label: Text(
+                        _isDownloading ? 'GENERATING PDF...' : 'DOWNLOAD PDF',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
                     ),
                   ),
                 ),
@@ -307,14 +360,7 @@ class InvoiceDetailsScreen extends StatelessWidget {
                   child: SizedBox(
                     height: 50,
                     child: OutlinedButton.icon(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Sharing invoice link...'),
-                            backgroundColor: AppColors.gold,
-                          ),
-                        );
-                      },
+                      onPressed: _handleSharePdf,
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: AppColors.gold),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

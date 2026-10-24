@@ -5,6 +5,7 @@ import '../../config/app_colors.dart';
 import '../../models/order_model.dart';
 import '../../providers/order_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/invoice_service.dart';
 import '../../widgets/order_status_chip.dart';
 import '../tracking/order_tracking_screen.dart';
 
@@ -89,7 +90,6 @@ class OrderDetailsScreen extends StatelessWidget {
           }
 
           final String cleanStatus = displayOrder.status.trim().toLowerCase();
-          // Business rule: Cancellation allowed ONLY while order is in 'Order Placed' or 'Pending' status
           final bool isCancellable = (cleanStatus == 'order placed' || cleanStatus == 'pending') && !displayOrder.isDelivered;
 
           return SingleChildScrollView(
@@ -140,7 +140,55 @@ class OrderDetailsScreen extends StatelessWidget {
                       label: const Text('TRACK ORDER PROGRESS', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
                     ),
                   ),
-                if (displayOrder.status != 'Cancelled') const SizedBox(height: 32),
+                if (displayOrder.status != 'Cancelled') const SizedBox(height: 16),
+
+                // Download Tax Invoice PDF Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      try {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Generating PDF Invoice...'),
+                            backgroundColor: AppColors.gold,
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                        final pdfFile = await InvoiceService.generateInvoicePdf(displayOrder);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Invoice saved: ${pdfFile.path.split('/').last}'),
+                              backgroundColor: AppColors.gold,
+                              action: SnackBarAction(
+                                label: 'OPEN',
+                                textColor: Colors.black,
+                                onPressed: () => InvoiceService.openPdf(pdfFile.path),
+                              ),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to generate invoice: $e'), backgroundColor: AppColors.error),
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.gold,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    ),
+                    icon: const Icon(Icons.file_download_outlined, color: Colors.black),
+                    label: const Text('DOWNLOAD TAX INVOICE (PDF)', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                  ),
+                ),
+
+                const SizedBox(height: 32),
                 
                 ...displayOrder.orderItems.map((item) => Padding(
                       padding: const EdgeInsets.only(bottom: 16.0),
