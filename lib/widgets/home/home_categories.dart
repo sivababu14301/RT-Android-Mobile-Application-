@@ -14,12 +14,62 @@ class HomeCategories extends StatefulWidget {
 }
 
 class _HomeCategoriesState extends State<HomeCategories> {
+  // Standard 7 Categories in exact specified order
+  final List<CategoryModel> _standard7Categories = [
+    CategoryModel(id: '1', name: 'Pants', description: 'Custom tailored pants, trousers and jeans'),
+    CategoryModel(id: '2', name: 'Shirts', description: 'Custom tailored casual and everyday shirts'),
+    CategoryModel(id: '3', name: 'T-Shirts', description: 'Premium fitted T-shirts and polo shirts'),
+    CategoryModel(id: '4', name: 'Formal Shirts', description: 'Luxury formal dress shirts'),
+    CategoryModel(id: '5', name: 'Suits', description: 'Bespoke tailored suits and blazers'),
+    CategoryModel(id: '6', name: 'Wedding Wear', description: 'Royal wedding tuxedos and ethnic wear'),
+    CategoryModel(id: '7', name: 'Uniforms', description: 'Custom corporate and school uniforms'),
+  ];
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<CategoryProvider>().fetchCategories();
     });
+  }
+
+  List<CategoryModel> _getOrderedCategories(List<CategoryModel> fetched) {
+    if (fetched.isEmpty) return _standard7Categories;
+
+    final List<String> targetOrder = [
+      'pants',
+      'shirts',
+      't-shirts',
+      'formal shirts',
+      'suits',
+      'wedding wear',
+      'uniforms',
+    ];
+
+    final List<CategoryModel> result = [];
+    for (String target in targetOrder) {
+      final match = fetched.firstWhere(
+        (c) {
+          final name = c.name.trim().toLowerCase();
+          if (target == 't-shirts') return name.contains('t-shirt') || name.contains('tshirt');
+          if (target == 'formal shirts') return name.contains('formal shirt');
+          if (target == 'shirts') return name == 'shirts' || name == 'shirt';
+          if (target == 'pants') return name.contains('pant') || name.contains('trouser') || name.contains('jean');
+          if (target == 'suits') return name.contains('suit');
+          if (target == 'wedding wear') return name.contains('wedding');
+          if (target == 'uniforms') return name.contains('uniform');
+          return name == target;
+        },
+        orElse: () => _standard7Categories.firstWhere(
+          (sc) => sc.name.toLowerCase().contains(target.split(' ')[0]),
+        ),
+      );
+      if (!result.any((r) => r.name.toLowerCase() == match.name.toLowerCase())) {
+        result.add(match);
+      }
+    }
+
+    return result.length == 7 ? result : _standard7Categories;
   }
 
   @override
@@ -73,20 +123,10 @@ class _HomeCategoriesState extends State<HomeCategories> {
 
         Consumer<CategoryProvider>(
           builder: (context, categoryProvider, child) {
-            final List<CategoryModel> categories = categoryProvider.categories.isNotEmpty
-                ? categoryProvider.categories
-                : [
-                    CategoryModel(id: '1', name: 'Pants', description: 'Custom tailored pants, trousers and jeans'),
-                    CategoryModel(id: '2', name: 'Shirts', description: 'Custom tailored casual and everyday shirts'),
-                    CategoryModel(id: '3', name: 'T-Shirts', description: 'Premium fitted T-shirts and polo shirts'),
-                    CategoryModel(id: '4', name: 'Formal Shirts', description: 'Luxury formal dress shirts'),
-                    CategoryModel(id: '5', name: 'Suits', description: 'Bespoke tailored suits and blazers'),
-                    CategoryModel(id: '6', name: 'Wedding Wear', description: 'Royal wedding tuxedos and ethnic wear'),
-                    CategoryModel(id: '7', name: 'Uniforms', description: 'Custom corporate and school uniforms'),
-                  ];
+            final List<CategoryModel> categories = _getOrderedCategories(categoryProvider.categories);
 
             return SizedBox(
-              height: 105,
+              height: 108,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -116,13 +156,13 @@ class _HomeCategoriesState extends State<HomeCategories> {
           );
         },
         child: SizedBox(
-          width: 76,
+          width: 80,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 64,
-                height: 64,
+                width: 68,
+                height: 68,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.card,
@@ -139,7 +179,7 @@ class _HomeCategoriesState extends State<HomeCategories> {
                   child: Icon(
                     category.iconData,
                     color: AppColors.gold,
-                    size: 28,
+                    size: 30,
                   ),
                 ),
               ),
