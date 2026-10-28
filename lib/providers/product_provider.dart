@@ -36,34 +36,89 @@ class ProductProvider with ChangeNotifier {
 
     if (clean == 'all') return 'all';
 
-    // 1. T-Shirts (must come before Shirts)
+    // 1. Formal Shirts
+    if (clean.contains('formalshirt') || clean.contains('formalshirts')) {
+      return 'formalshirt';
+    }
+
+    // 2. T-Shirts
     if (clean.contains('tshirt') || clean.contains('tshirts')) {
       return 'tshirt';
     }
 
-    // 2. Shirts
+    // 3. Shirts
     if (clean.contains('shirt') || clean.contains('shirts')) {
       return 'shirt';
     }
 
-    // 3. Pants
-    if (clean.contains('pant') || clean.contains('pants') || clean.contains('trouser') || clean.contains('paint')) {
+    // 4. Jeans
+    if (clean.contains('jean') || clean.contains('jeans')) {
+      return 'jean';
+    }
+
+    // 5. Trousers
+    if (clean.contains('trouser') || clean.contains('trousers')) {
+      return 'trouser';
+    }
+
+    // 6. Pants
+    if (clean.contains('pant') || clean.contains('pants') || clean.contains('paint')) {
       return 'pant';
     }
 
-    // 4. Suits
+    // 7. Blazers
+    if (clean.contains('blazer') || clean.contains('blazers')) {
+      return 'blazer';
+    }
+
+    // 8. Suits
     if (clean.contains('suit') || clean.contains('suits')) {
       return 'suit';
     }
 
-    // 5. Uniforms
+    // 9. School Uniforms
+    if (clean.contains('school')) {
+      return 'schooluniform';
+    }
+
+    // 10. College Uniforms
+    if (clean.contains('college')) {
+      return 'collegeuniform';
+    }
+
+    // 11. Uniforms
     if (clean.contains('uniform') || clean.contains('unfome')) {
       return 'uniform';
     }
 
-    // 6. Wedding
+    // 12. Wedding Wear
     if (clean.contains('wedding')) {
       return 'wedding';
+    }
+
+    // 13. Casual Wear
+    if (clean.contains('casual')) {
+      return 'casualwear';
+    }
+
+    // 14. Traditional Wear
+    if (clean.contains('traditional') || clean.contains('ethnic')) {
+      return 'traditionalwear';
+    }
+
+    // 15. Shorts
+    if (clean.contains('short') || clean.contains('shorts')) {
+      return 'short';
+    }
+
+    // 16. Jackets
+    if (clean.contains('jacket') || clean.contains('jackets')) {
+      return 'jacket';
+    }
+
+    // 17. Accessories
+    if (clean.contains('accessor')) {
+      return 'accessory';
     }
 
     if (clean.length > 3 && clean.endsWith('s')) {
