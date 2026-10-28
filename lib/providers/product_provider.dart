@@ -36,12 +36,12 @@ class ProductProvider with ChangeNotifier {
 
     if (clean == 'all') return 'all';
 
-    // 1. Formal Shirts
+    // 1. Formal Shirts (must come before Shirts)
     if (clean.contains('formalshirt') || clean.contains('formalshirts')) {
       return 'formalshirt';
     }
 
-    // 2. T-Shirts
+    // 2. T-Shirts (must come before Shirts)
     if (clean.contains('tshirt') || clean.contains('tshirts')) {
       return 'tshirt';
     }
@@ -56,67 +56,62 @@ class ProductProvider with ChangeNotifier {
       return 'jean';
     }
 
-    // 5. Trousers
-    if (clean.contains('trouser') || clean.contains('trousers')) {
-      return 'trouser';
-    }
-
-    // 6. Pants
-    if (clean.contains('pant') || clean.contains('pants') || clean.contains('paint')) {
+    // 5. Pants & Trousers
+    if (clean.contains('pant') || clean.contains('pants') || clean.contains('trouser') || clean.contains('trousers') || clean.contains('paint')) {
       return 'pant';
     }
 
-    // 7. Blazers
+    // 6. Blazers
     if (clean.contains('blazer') || clean.contains('blazers')) {
       return 'blazer';
     }
 
-    // 8. Suits
+    // 7. Suits
     if (clean.contains('suit') || clean.contains('suits')) {
       return 'suit';
     }
 
-    // 9. School Uniforms
+    // 8. School Uniforms
     if (clean.contains('school')) {
       return 'schooluniform';
     }
 
-    // 10. College Uniforms
+    // 9. College Uniforms
     if (clean.contains('college')) {
       return 'collegeuniform';
     }
 
-    // 11. Uniforms
+    // 10. Uniforms (General)
     if (clean.contains('uniform') || clean.contains('unfome')) {
       return 'uniform';
     }
 
-    // 12. Wedding Wear
+    // 11. Wedding Wear
     if (clean.contains('wedding')) {
       return 'wedding';
     }
 
-    // 13. Casual Wear
+    // 12. Casual Wear
     if (clean.contains('casual')) {
       return 'casualwear';
     }
 
-    // 14. Traditional Wear
+    // 13. Traditional Wear
     if (clean.contains('traditional') || clean.contains('ethnic')) {
       return 'traditionalwear';
     }
 
-    // 15. Shorts
+    // 14. Shorts
     if (clean.contains('short') || clean.contains('shorts')) {
       return 'short';
     }
 
-    // 16. Jackets
+    // 15. Jackets
     if (clean.contains('jacket') || clean.contains('jackets')) {
       return 'jacket';
     }
 
-    // 17. Accessories
+    // 16. Accessories
     if (clean.contains('accessor')) {
       return 'accessory';
     }
