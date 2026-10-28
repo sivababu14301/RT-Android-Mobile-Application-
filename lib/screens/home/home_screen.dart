@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/app_colors.dart';
+import '../../models/product_model.dart';
 import '../../widgets/nav_drawer.dart';
 import '../../widgets/home_banner.dart';
 import '../../widgets/home/home_categories.dart';
@@ -438,20 +439,43 @@ class _HomeScreenState extends State<HomeScreen> {
           // 5. NEW ARRIVALS CATALOG
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 28, 16, 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     'New Arrivals',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                  IconButton(
-                    onPressed: () {
+                  InkWell(
+                    onTap: () {
                       context.read<ProductProvider>().resetToAll();
                       context.read<CustomerNavProvider>().setIndex(2);
                     },
-                    icon: const Icon(Icons.arrow_forward_ios, color: AppColors.gold, size: 18),
+                    borderRadius: BorderRadius.circular(8),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'View All',
+                            style: TextStyle(
+                              color: AppColors.gold,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(Icons.arrow_forward_ios, color: AppColors.gold, size: 12),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -460,29 +484,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
           Consumer<ProductProvider>(
             builder: (context, provider, child) {
-              final products = provider.products.isNotEmpty ? provider.products : provider.newArrivals;
-              if (provider.isLoading && products.isEmpty) {
+              final List<Product> displayProducts = provider.products.isNotEmpty
+                  ? provider.products
+                  : provider.allProducts;
+
+              if (provider.isLoading && displayProducts.isEmpty) {
                 return const SliverToBoxAdapter(
-                  child: Center(child: CircularProgressIndicator(color: AppColors.gold)),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40.0),
+                    child: Center(child: CircularProgressIndicator(color: AppColors.gold)),
+                  ),
                 );
               }
-              if (products.isEmpty) {
+
+              if (displayProducts.isEmpty) {
                 return const SliverToBoxAdapter(
-                  child: Center(child: Text('No products found', style: TextStyle(color: AppColors.grey))),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40.0),
+                    child: Center(
+                      child: Text('No products available', style: TextStyle(color: AppColors.grey)),
+                    ),
+                  ),
                 );
               }
+
               return SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 0.70,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.68,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
                   ),
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) => ProductCard(product: products[index]),
-                    childCount: products.length,
+                    (context, index) => ProductCard(product: displayProducts[index]),
+                    childCount: displayProducts.length,
                   ),
                 ),
               );
