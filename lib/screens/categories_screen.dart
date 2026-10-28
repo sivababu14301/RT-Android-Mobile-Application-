@@ -8,7 +8,7 @@ class CategoriesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final categories = HomeCategories.categories;
+    final categories = HomeCategories.allCategories;
 
     return Scaffold(
       backgroundColor: AppColors.background,
