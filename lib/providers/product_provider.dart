@@ -207,10 +207,43 @@ class ProductProvider with ChangeNotifier {
       _filteredProducts = List.from(_allProducts);
     } else {
       final targetNormalized = normalizeCategory(_selectedCategory);
+      final rawTargetLower = _selectedCategory.trim().toLowerCase();
       
       _filteredProducts = _allProducts.where((product) {
-        final productNormalized = normalizeCategory(product.category);
-        return productNormalized == targetNormalized;
+        final productCatNormalized = normalizeCategory(product.category);
+        if (productCatNormalized == targetNormalized) return true;
+        
+        // Secondary fallback matching on product category or product name
+        final rawProductCat = product.category.trim().toLowerCase();
+        final rawProductName = product.name.trim().toLowerCase();
+        
+        if (targetNormalized == 'pant') {
+          return rawProductCat.contains('pant') || rawProductCat.contains('trouser') ||
+                 rawProductName.contains('pant') || rawProductName.contains('trouser');
+        }
+        if (targetNormalized == 'shirt') {
+          return (rawProductCat.contains('shirt') && !rawProductCat.contains('tshirt') && !rawProductCat.contains('t-shirt') && !rawProductCat.contains('formal')) ||
+                 (rawProductName.contains('shirt') && !rawProductName.contains('t-shirt') && !rawProductName.contains('tshirt') && !rawProductName.contains('formal'));
+        }
+        if (targetNormalized == 'tshirt') {
+          return rawProductCat.contains('tshirt') || rawProductCat.contains('t-shirt') ||
+                 rawProductName.contains('tshirt') || rawProductName.contains('t-shirt');
+        }
+        if (targetNormalized == 'formalshirt') {
+          return (rawProductCat.contains('formal') && rawProductCat.contains('shirt')) ||
+                 (rawProductName.contains('formal') && rawProductName.contains('shirt'));
+        }
+        if (targetNormalized == 'jean') {
+          return rawProductCat.contains('jean') || rawProductName.contains('jean');
+        }
+        if (targetNormalized == 'blazer') {
+          return rawProductCat.contains('blazer') || rawProductName.contains('blazer');
+        }
+        if (targetNormalized == 'suit') {
+          return rawProductCat.contains('suit') || rawProductName.contains('suit');
+        }
+        
+        return rawProductCat.contains(rawTargetLower) || rawProductName.contains(rawTargetLower);
       }).toList();
     }
 
@@ -248,117 +281,73 @@ class ProductProvider with ChangeNotifier {
         if (!normFilterFabrics.contains(normProductFabric)) return false;
       }
 
-      // Price Filter
-      if (priceRange != null) {
-        if (priceRange == 'Under ₹500') {
-          if (product.price >= 500) return false;
-        } else if (priceRange == '₹500 – ₹1000') {
-          if (product.price < 500 || product.price > 1000) return false;
-        } else if (priceRange == '₹1000 – ₹2000') {
-          if (product.price < 1000 || product.price > 2000) return false;
-        } else if (priceRange == 'Above ₹2000') {
-          if (product.price <= 2000) return false;
-        }
+      // Price Range Filter
+      if (priceRange != null && priceRange.isNotEmpty) {
+        final price = product.price;
+        if (priceRange == 'Under ₹500' && price >= 500) return false;
+        if (priceRange == '₹500 – ₹1000' && (price < 500 || price > 1000)) return false;
+        if (priceRange == '₹1000 – ₹2000' && (price < 1000 || price > 2000)) return false;
+        if (priceRange == 'Above ₹2000' && price <= 2000) return false;
       }
 
       // Size Filter
       if (sizes != null && sizes.isNotEmpty) {
-        bool hasSize = product.sizes.any((s) => sizes.contains(s));
-        if (!hasSize) return false;
+        final productSizes = product.displaySizes.map((s) => s.trim().toUpperCase()).toSet();
+        final filterSizes = sizes.map((s) => s.trim().toUpperCase()).toSet();
+        if (productSizes.intersection(filterSizes).isEmpty) return false;
       }
 
       // Color Filter
       if (colors != null && colors.isNotEmpty) {
-        bool hasColor = product.colors.any((c) => colors.contains(c));
-        if (!hasColor) return false;
+        final productColors = product.colors.map((c) => c.trim().toLowerCase()).toSet();
+        final filterColors = colors.map((c) => c.trim().toLowerCase()).toSet();
+        if (productColors.intersection(filterColors).isEmpty) return false;
       }
 
       return true;
     }).toList();
+
     notifyListeners();
   }
 
-  void applySort(String sortType) {
-    if (sortType == 'Price: Low to High') {
+  void applySort(String sortOption) {
+    if (sortOption == 'Price: Low to High') {
       _filteredProducts.sort((a, b) => a.price.compareTo(b.price));
-    } else if (sortType == 'Price: High to Low') {
+    } else if (sortOption == 'Price: High to Low') {
       _filteredProducts.sort((a, b) => b.price.compareTo(a.price));
-    } else if (sortType == 'Newest') {
+    } else if (sortOption == 'Newest') {
       _filteredProducts.sort((a, b) {
         if (a.createdAt == null || b.createdAt == null) return 0;
         return b.createdAt!.compareTo(a.createdAt!);
       });
-    } else if (sortType == 'Rating: High to Low') {
+    } else if (sortOption == 'Rating: High to Low') {
       _filteredProducts.sort((a, b) => b.rating.compareTo(a.rating));
     }
     notifyListeners();
   }
 
+  // Admin Methods
   Future<List<String>> uploadImages(List<File> imageFiles, String token) async {
-    try {
-      return await _productService.uploadImages(imageFiles, token);
-    } catch (e) {
-      rethrow;
-    }
+    return await _productService.uploadImages(imageFiles, token);
   }
 
-  Future<void> addProduct(Map<String, dynamic> productData, String token) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      await _productService.addProduct(productData, token);
-      await fetchProducts(); // Refresh list
-    } catch (e) {
-      rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+  Future<Map<String, dynamic>> addProduct(Map<String, dynamic> productData, String token) async {
+    final result = await _productService.addProduct(productData, token);
+    await fetchProducts();
+    return result;
   }
 
-  Future<void> updateProduct(String id, Map<String, dynamic> productData, String token) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      await _productService.updateProduct(id, productData, token);
-      await fetchProducts(); // Refresh list
-    } catch (e) {
-      rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> updateStock(String id, int stock, String token) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      await _productService.updateProduct(id, {'stock': stock}, token);
-      await fetchProducts(); // Refresh list
-    } catch (e) {
-      rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+  Future<Map<String, dynamic>> updateProduct(String id, Map<String, dynamic> productData, String token) async {
+    final result = await _productService.updateProduct(id, productData, token);
+    await fetchProducts();
+    return result;
   }
 
   Future<bool> deleteProduct(String id, String token) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      final success = await _productService.deleteProduct(id, token);
-      if (success) {
-        await fetchProducts();
-      }
-      return success;
-    } catch (e) {
-      debugPrint('Delete Product Error: $e');
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+    final success = await _productService.deleteProduct(id, token);
+    if (success) {
+      await fetchProducts();
     }
+    return success;
   }
 }
