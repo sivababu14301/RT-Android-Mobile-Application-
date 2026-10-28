@@ -667,46 +667,128 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     );
   }
 
+  static Color _getColorFromName(String name) {
+    final clean = name.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '').replaceAll(' ', '');
+    if (clean == 'black') return const Color(0xFF000000);
+    if (clean == 'white') return const Color(0xFFFFFFFF);
+    if (clean == 'blue' || clean == 'lightblue') return const Color(0xFF2196F3);
+    if (clean == 'navy' || clean == 'navyblue') return const Color(0xFF000080);
+    if (clean == 'green' || clean == 'emeraldgreen') return const Color(0xFF008000);
+    if (clean == 'maroon') return const Color(0xFF800000);
+    if (clean == 'gold') return const Color(0xFFD4AF37);
+    if (clean == 'red') return const Color(0xFFFF0000);
+    if (clean == 'grey' || clean == 'gray') return const Color(0xFF808080);
+    if (clean == 'beige') return const Color(0xFFF5F5DC);
+    if (clean == 'cream') return const Color(0xFFFFFDD0);
+    if (clean == 'yellow') return const Color(0xFFFFFF00);
+    if (clean == 'pink') return const Color(0xFFFFC0CB);
+    if (clean == 'purple') return const Color(0xFF800080);
+    if (clean == 'brown') return const Color(0xFF964B00);
+    if (clean == 'orange') return const Color(0xFFFFA500);
+
+    if (name.startsWith('#')) {
+      try {
+        final hexStr = name.replaceAll('#', '');
+        return Color(int.parse('0xFF$hexStr'));
+      } catch (_) {}
+    }
+    return const Color(0xFFD4AF37); // Fallback Gold
+  }
+
   Widget _buildColorSection() {
+    final colors = widget.product.colors;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Select Color',
-          style: TextStyle(
-            color: AppColors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: widget.product.colors.map((color) {
-            final isSelected = _selectedColor == color;
-            return ChoiceChip(
-              label: Text(color),
-              selected: isSelected,
-              selectedColor: AppColors.gold,
-              backgroundColor: AppColors.card,
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.black : Colors.white,
+        Row(
+          children: [
+            const Text(
+              'Select Color: ',
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-                side: BorderSide(
-                  color: isSelected ? AppColors.gold : Colors.white10,
+            ),
+            if (_selectedColor != null)
+              Text(
+                _selectedColor!,
+                style: const TextStyle(
+                  color: AppColors.gold,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => _selectedColor = color);
-                }
-              },
-            );
-          }).toList(),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 65,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: colors.length,
+            itemBuilder: (context, index) {
+              final colorName = colors[index];
+              final isSelected = _selectedColor == colorName;
+              final Color colorVal = _getColorFromName(colorName);
+              final bool isWhiteOrLight = colorVal.computeLuminance() > 0.7;
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 16.0),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() => _selectedColor = colorName);
+                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colorVal,
+                          border: Border.all(
+                            color: isSelected ? AppColors.gold : (isWhiteOrLight ? Colors.black54 : Colors.white24),
+                            width: isSelected ? 3.0 : 1.2,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.gold.withValues(alpha: 0.5),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: isSelected
+                            ? Center(
+                                child: Icon(
+                                  Icons.check,
+                                  size: 20,
+                                  color: isWhiteOrLight ? Colors.black : Colors.white,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        colorName,
+                        style: TextStyle(
+                          color: isSelected ? AppColors.gold : Colors.white70,
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ],
     );

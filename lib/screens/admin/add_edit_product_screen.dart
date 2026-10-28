@@ -24,17 +24,63 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   late TextEditingController _priceController;
   late TextEditingController _stockController;
   late TextEditingController _descController;
-  late TextEditingController _colorsController;
   
   bool _isSubmitting = false;
   String _selectedCategory = 'Shirts';
   List<String> _selectedFabrics = ['Cotton'];
   List<String> _selectedSizes = [];
+  List<String> _selectedColors = ['Black', 'White'];
   bool _isFeatured = false;
   bool _allowCustomFit = false;
   
   final List<File> _selectedImageFiles = [];
   final ImagePicker _picker = ImagePicker();
+
+  // Standard predefined color palette map (Name -> Color)
+  static final Map<String, Color> _palette = {
+    'Black': const Color(0xFF000000),
+    'White': const Color(0xFFFFFFFF),
+    'Navy Blue': const Color(0xFF000080),
+    'Royal Blue': const Color(0xFF2196F3),
+    'Maroon': const Color(0xFF800000),
+    'Emerald Green': const Color(0xFF008000),
+    'Gold': const Color(0xFFD4AF37),
+    'Grey': const Color(0xFF808080),
+    'Beige': const Color(0xFFF5F5DC),
+    'Cream': const Color(0xFFFFFDD0),
+    'Red': const Color(0xFFFF0000),
+    'Pink': const Color(0xFFFFC0CB),
+    'Purple': const Color(0xFF800080),
+    'Brown': const Color(0xFF964B00),
+  };
+
+  static Color getColorFromName(String name) {
+    final clean = name.trim().toLowerCase().replaceAll('-', '').replaceAll('_', '').replaceAll(' ', '');
+    if (clean == 'black') return const Color(0xFF000000);
+    if (clean == 'white') return const Color(0xFFFFFFFF);
+    if (clean == 'blue' || clean == 'lightblue') return const Color(0xFF2196F3);
+    if (clean == 'navy' || clean == 'navyblue') return const Color(0xFF000080);
+    if (clean == 'green' || clean == 'emeraldgreen') return const Color(0xFF008000);
+    if (clean == 'maroon') return const Color(0xFF800000);
+    if (clean == 'gold') return const Color(0xFFD4AF37);
+    if (clean == 'red') return const Color(0xFFFF0000);
+    if (clean == 'grey' || clean == 'gray') return const Color(0xFF808080);
+    if (clean == 'beige') return const Color(0xFFF5F5DC);
+    if (clean == 'cream') return const Color(0xFFFFFDD0);
+    if (clean == 'yellow') return const Color(0xFFFFFF00);
+    if (clean == 'pink') return const Color(0xFFFFC0CB);
+    if (clean == 'purple') return const Color(0xFF800080);
+    if (clean == 'brown') return const Color(0xFF964B00);
+    if (clean == 'orange') return const Color(0xFFFFA500);
+
+    if (name.startsWith('#')) {
+      try {
+        final hexStr = name.replaceAll('#', '');
+        return Color(int.parse('0xFF$hexStr'));
+      } catch (_) {}
+    }
+    return const Color(0xFFD4AF37); // Fallback Gold
+  }
 
   bool get _isPantCategory => Product.isPantCategory(_selectedCategory);
 
@@ -48,7 +94,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     _priceController = TextEditingController(text: widget.product?.price.toString() ?? '');
     _stockController = TextEditingController(text: widget.product?.stock.toString() ?? '');
     _descController = TextEditingController(text: widget.product?.description ?? '');
-    _colorsController = TextEditingController(text: widget.product?.colors.join(', ') ?? '');
     
     if (widget.product != null) {
       _selectedCategory = widget.product!.category;
@@ -59,6 +104,10 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       }
       if (_selectedFabrics.isEmpty) {
         _selectedFabrics = ['Cotton'];
+      }
+
+      if (widget.product!.colors.isNotEmpty) {
+        _selectedColors = List.from(widget.product!.colors);
       }
       
       if (widget.product!.isPantProduct) {
@@ -88,8 +137,80 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     _priceController.dispose();
     _stockController.dispose();
     _descController.dispose();
-    _colorsController.dispose();
     super.dispose();
+  }
+
+  void _toggleColorSelection(String colorName) {
+    setState(() {
+      if (_selectedColors.contains(colorName)) {
+        if (_selectedColors.length > 1) {
+          _selectedColors.remove(colorName);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('At least one color must be selected')),
+          );
+        }
+      } else {
+        _selectedColors.add(colorName);
+      }
+    });
+  }
+
+  void _showAddCustomColorDialog() {
+    final customController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppColors.goldBorder, width: 0.5),
+          ),
+          title: const Text('Add Custom Color', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: customController,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Color Name',
+              labelStyle: const TextStyle(color: AppColors.gold),
+              hintText: 'e.g. Olive, Lavender, Teal',
+              hintStyle: const TextStyle(color: Colors.white38),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Colors.white24),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.gold),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final name = customController.text.trim();
+                if (name.isNotEmpty) {
+                  setState(() {
+                    if (!_selectedColors.contains(name)) {
+                      _selectedColors.add(name);
+                    }
+                  });
+                }
+                Navigator.pop(dialogContext);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.gold),
+              child: const Text('ADD', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _toggleFabricSelection(String fabric) {
@@ -283,6 +404,11 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       return;
     }
 
+    if (_selectedColors.isEmpty) {
+      _showError('Please select at least one color');
+      return;
+    }
+
     final productProvider = context.read<ProductProvider>();
     final userProvider = context.read<UserProvider>();
     final adminProvider = context.read<AdminProvider>();
@@ -326,7 +452,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         'fabric': _selectedFabrics.join(', '),
         'fabrics': _selectedFabrics,
         'sizes': _selectedSizes, 
-        'colors': _colorsController.text.split(',').map((c) => c.trim()).where((c) => c.isNotEmpty).toList(),
+        'colors': _selectedColors,
         'images': imageUrls,
         'isFeatured': _isFeatured,
         'allowCustomFit': isShirtOrPant ? true : (_allowCustomFit || _selectedSizes.contains('Custom Fit')),
@@ -377,6 +503,14 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   Widget build(BuildContext context) {
     bool isEdit = widget.product != null;
     final isLoading = context.watch<ProductProvider>().isLoading;
+
+    // Build complete display colors list (Predefined palette + any existing product custom colors)
+    List<String> allDisplayColors = _palette.keys.toList();
+    for (var c in _selectedColors) {
+      if (!allDisplayColors.contains(c)) {
+        allDisplayColors.add(c);
+      }
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -632,8 +766,98 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
             ),
             const SizedBox(height: 25),
 
-            _buildSectionLabel('Colors'),
-            _buildAdminTextField(_colorsController, 'Available Colors (comma separated)', Icons.color_lens_outlined),
+            // --- COLOR SELECTION (CIRCULAR SWATCH MULTI-SELECT) ---
+            _buildSectionLabel('Available Colors (Tap to Select Multiple)'),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 70,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: allDisplayColors.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == allDisplayColors.length) {
+                    // Add Custom Color Button
+                    return GestureDetector(
+                      onTap: _isSubmitting ? null : _showAddCustomColorDialog,
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        margin: const EdgeInsets.only(right: 14),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.card,
+                          border: Border.all(color: AppColors.gold, width: 1.2),
+                        ),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add, color: AppColors.gold, size: 20),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final cName = allDisplayColors[index];
+                  final isSelected = _selectedColors.contains(cName);
+                  final Color cVal = getColorFromName(cName);
+                  final bool isWhiteOrLight = cVal.computeLuminance() > 0.7;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 14.0),
+                    child: GestureDetector(
+                      onTap: _isSubmitting ? null : () => _toggleColorSelection(cName),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: cVal,
+                              border: Border.all(
+                                color: isSelected ? AppColors.gold : (isWhiteOrLight ? Colors.black54 : Colors.white24),
+                                width: isSelected ? 3.0 : 1.2,
+                              ),
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.gold.withValues(alpha: 0.5),
+                                        blurRadius: 8,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: isSelected
+                                ? Center(
+                                    child: Icon(
+                                      Icons.check,
+                                      size: 20,
+                                      color: isWhiteOrLight ? Colors.black : Colors.white,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            cName,
+                            style: TextStyle(
+                              color: isSelected ? AppColors.gold : Colors.white70,
+                              fontSize: 10,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 25),
             
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
