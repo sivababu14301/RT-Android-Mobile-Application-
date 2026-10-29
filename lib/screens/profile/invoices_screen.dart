@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -29,6 +30,53 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     if (token != null) {
       await context.read<OrderProvider>().fetchMyOrders(token);
     }
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      width: 55,
+      height: 55,
+      decoration: BoxDecoration(
+        color: AppColors.gold.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+      ),
+      child: const Icon(Icons.shopping_bag_outlined, color: AppColors.gold, size: 24),
+    );
+  }
+
+  Widget _buildProductThumbnail(String rawUrl) {
+    if (rawUrl.trim().isEmpty) return _buildImagePlaceholder();
+
+    if (rawUrl.startsWith('data:image/')) {
+      try {
+        final base64Str = rawUrl.split(',').last.trim();
+        final bytes = base64Decode(base64Str);
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.memory(
+            bytes,
+            width: 55,
+            height: 55,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+          ),
+        );
+      } catch (_) {
+        return _buildImagePlaceholder();
+      }
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        rawUrl,
+        width: 55,
+        height: 55,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+      ),
+    );
   }
 
   @override
@@ -174,19 +222,9 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
             const Divider(color: Colors.white12, height: 24),
             Row(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: firstItem != null
-                      ? Image.network(
-                          firstItem.imageUrl,
-                          width: 55,
-                          height: 55,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(width: 55, height: 55, color: Colors.black26, child: const Icon(Icons.broken_image, color: AppColors.gold)),
-                        )
-                      : Container(width: 55, height: 55, color: Colors.black26, child: const Icon(Icons.receipt, color: AppColors.gold)),
-                ),
+                firstItem != null && firstItem.imageUrl.isNotEmpty
+                    ? _buildProductThumbnail(firstItem.imageUrl)
+                    : _buildImagePlaceholder(),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(

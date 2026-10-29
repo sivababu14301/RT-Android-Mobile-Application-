@@ -35,7 +35,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   int _userRating = 0;
   final TextEditingController _reviewController = TextEditingController();
   
-  bool _isDetailsLoading = true;
   bool _isSubmittingReview = false;
   bool _isAddingToCart = false;
   final List<File> _reviewImageFiles = [];
@@ -72,17 +71,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   void _loadAllData() async {
     setState(() {
-      _isDetailsLoading = true;
       _isReviewsLoading = true;
       _isRelatedLoading = true;
     });
 
     _fetchReviews();
     _fetchRelatedProducts();
-
-    if (mounted) {
-      setState(() => _isDetailsLoading = false);
-    }
   }
 
   void _fetchReviews() async {

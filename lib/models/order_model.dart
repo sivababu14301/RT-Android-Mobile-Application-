@@ -1,5 +1,6 @@
 import '../config/api_config.dart';
 import 'user_model.dart';
+import 'product_model.dart';
 
 class OrderModel {
   final String id;
@@ -121,21 +122,41 @@ class OrderItem {
 
   String get imageUrl {
     if (image.trim().isEmpty) return '';
-    if (image.startsWith('data:image/') || image.startsWith('http://') || image.startsWith('https://')) {
+    if (image.startsWith('data:image/')) {
       return image;
     }
-    return '${ApiConfig.baseServerUrl}${image.startsWith('/') ? '' : '/'}$image';
+    return Product.formatImageUrl(image);
   }
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
+    String rawImg = '';
+    if (json['image'] != null && json['image'].toString().trim().isNotEmpty) {
+      rawImg = json['image'].toString().trim();
+    } else if (json['imageUrl'] != null && json['imageUrl'].toString().trim().isNotEmpty) {
+      rawImg = json['imageUrl'].toString().trim();
+    } else if (json['image_url'] != null && json['image_url'].toString().trim().isNotEmpty) {
+      rawImg = json['image_url'].toString().trim();
+    } else if (json['productImage'] != null && json['productImage'].toString().trim().isNotEmpty) {
+      rawImg = json['productImage'].toString().trim();
+    } else if (json['images'] != null && json['images'] is List && (json['images'] as List).isNotEmpty) {
+      rawImg = json['images'][0].toString().trim();
+    } else if (json['product'] is Map) {
+      final pMap = json['product'] as Map<String, dynamic>;
+      if (pMap['images'] != null && pMap['images'] is List && (pMap['images'] as List).isNotEmpty) {
+        rawImg = pMap['images'][0].toString().trim();
+      } else if (pMap['image'] != null && pMap['image'].toString().trim().isNotEmpty) {
+        rawImg = pMap['image'].toString().trim();
+      }
+    }
+
     return OrderItem(
-      name: json['name'] ?? '',
-      quantity: json['quantity'] ?? 0,
-      image: json['image'] ?? '',
-      price: (json['price'] ?? 0).toDouble(),
+      name: json['name'] ?? (json['product'] is Map ? json['product']['name'] ?? '' : ''),
+      quantity: json['quantity'] ?? json['qty'] ?? 1,
+      image: rawImg,
+      price: (json['price'] ?? (json['product'] is Map ? json['product']['price'] ?? 0 : 0)).toDouble(),
       size: json['size'],
       color: json['color'],
-      product: json['product'] ?? '',
+      product: json['product'] is Map ? (json['product']['_id'] ?? json['product']['id'] ?? '') : (json['product'] ?? ''),
     );
   }
 }
