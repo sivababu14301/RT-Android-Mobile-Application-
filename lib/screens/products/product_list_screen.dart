@@ -19,6 +19,7 @@ class ProductListScreen extends StatefulWidget {
 
 class _ProductListScreenState extends State<ProductListScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _categoryScrollController = ScrollController();
   bool _isSearching = false;
   String _selectedCategory = 'All';
 
@@ -234,6 +235,18 @@ class _ProductListScreenState extends State<ProductListScreen> {
     );
   }
 
+  void _scrollToSelectedCategory() {
+    final index = _categories.indexWhere((c) => c.toLowerCase().trim() == _selectedCategory.toLowerCase().trim());
+    if (index > 0 && _categoryScrollController.hasClients) {
+      final offset = (index * 95.0).clamp(0.0, _categoryScrollController.position.maxScrollExtent);
+      _categoryScrollController.animateTo(
+        offset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -249,6 +262,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final productProvider = context.read<ProductProvider>();
       productProvider.setCategory(_selectedCategory);
+      _scrollToSelectedCategory();
       productProvider.fetchProducts(
         category: _selectedCategory,
         search: _searchController.text.isEmpty ? null : _searchController.text,
@@ -264,6 +278,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _categoryScrollController.dispose();
     super.dispose();
   }
 
@@ -353,6 +368,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 SizedBox(
                   height: 48,
                   child: ListView.builder(
+                    controller: _categoryScrollController,
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 16),

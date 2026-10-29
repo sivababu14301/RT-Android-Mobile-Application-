@@ -245,6 +245,21 @@ class ProductProvider with ChangeNotifier {
         if (targetNormalized == 'wedding') {
           return rawProductCat.contains('wedding');
         }
+        if (targetNormalized == 'casualwear') {
+          return rawProductCat.contains('casual');
+        }
+        if (targetNormalized == 'traditionalwear') {
+          return rawProductCat.contains('traditional') || rawProductCat.contains('ethnic');
+        }
+        if (targetNormalized == 'short') {
+          return rawProductCat.contains('short');
+        }
+        if (targetNormalized == 'jacket') {
+          return rawProductCat.contains('jacket');
+        }
+        if (targetNormalized == 'accessory') {
+          return rawProductCat.contains('accessor');
+        }
         
         return rawProductCat.contains(rawTargetLower);
       }).toList();
