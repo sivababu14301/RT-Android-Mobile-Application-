@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -914,7 +915,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   Widget _buildRatingSummary() {
     final double rating = widget.product.rating;
-    final int total = widget.product.reviewCount;
+    final int total = _reviews.length > widget.product.reviewCount ? _reviews.length : widget.product.reviewCount;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -940,7 +941,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 }),
               ),
               const SizedBox(height: 4),
-              Text('$total ratings', style: const TextStyle(color: AppColors.grey, fontSize: 12)),
+              Text('$total ${total == 1 ? "rating" : "ratings"}', style: const TextStyle(color: AppColors.grey, fontSize: 12)),
             ],
           ),
           const SizedBox(width: 24),
@@ -948,12 +949,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             child: Column(
               children: [5, 4, 3, 2, 1].map((star) {
                 final count = _starDistribution[star.toString()] ?? 0;
-                final pct = total > 0 ? count / total : 0.0;
+                final pct = total > 0 ? (count / total).clamp(0.0, 1.0) : 0.0;
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2.0),
                   child: Row(
                     children: [
-                      Text('$star', style: const TextStyle(color: AppColors.grey, fontSize: 12)),
+                      Text('$star★', style: const TextStyle(color: AppColors.grey, fontSize: 11)),
                       const SizedBox(width: 6),
                       Expanded(
                         child: LinearProgressIndicator(
@@ -964,6 +965,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      Text('$count', style: const TextStyle(color: AppColors.grey, fontSize: 10)),
                     ],
                   ),
                 );
@@ -1082,7 +1085,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _buildReviewItem(dynamic rev) {
-    final String name = rev['userName'] ?? 'Customer';
+    final String name = rev['name'] ?? rev['userName'] ?? (rev['user'] is Map ? rev['user']['name'] : null) ?? 'User';
     final int rating = rev['rating'] ?? 5;
     final String comment = rev['comment'] ?? '';
     final String dateStr = rev['createdAt'] != null
@@ -1099,7 +1102,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             CircleAvatar(
               backgroundColor: AppColors.gold,
               radius: 16,
-              child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'C', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 12),
             Column(
@@ -1131,24 +1134,28 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               scrollDirection: Axis.horizontal,
               itemCount: images.length,
               itemBuilder: (context, idx) {
-                final imgUrl = images[idx];
+                final rawImg = images[idx].toString();
+                final fullImgUrl = Product.formatImageUrl(rawImg);
                 return GestureDetector(
-                  onTap: () => _showFullImageDialog(context, imgUrl),
+                  onTap: () => _showFullImageDialog(context, fullImgUrl),
                   child: Container(
                     margin: const EdgeInsets.only(right: 8),
                     width: 70,
                     height: 70,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white10),
+                      border: Border.all(color: AppColors.goldBorder.withValues(alpha: 0.3)),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        imgUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, color: AppColors.gold),
-                      ),
+                      child: rawImg.startsWith('data:image/')
+                          ? Image.memory(base64Decode(rawImg.split(',').last.trim()), fit: BoxFit.cover)
+                          : Image.network(
+                              fullImgUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.broken_image_outlined, color: AppColors.gold),
+                            ),
                     ),
                   ),
                 );
