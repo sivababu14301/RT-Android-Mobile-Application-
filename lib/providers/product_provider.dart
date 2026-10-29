@@ -213,37 +213,40 @@ class ProductProvider with ChangeNotifier {
         final productCatNormalized = normalizeCategory(product.category);
         if (productCatNormalized == targetNormalized) return true;
         
-        // Secondary fallback matching on product category or product name
         final rawProductCat = product.category.trim().toLowerCase();
-        final rawProductName = product.name.trim().toLowerCase();
         
         if (targetNormalized == 'pant') {
-          return rawProductCat.contains('pant') || rawProductCat.contains('trouser') ||
-                 rawProductName.contains('pant') || rawProductName.contains('trouser');
+          return rawProductCat.contains('pant') || rawProductCat.contains('trouser') || rawProductCat.contains('paint');
         }
         if (targetNormalized == 'shirt') {
-          return (rawProductCat.contains('shirt') && !rawProductCat.contains('tshirt') && !rawProductCat.contains('t-shirt') && !rawProductCat.contains('formal')) ||
-                 (rawProductName.contains('shirt') && !rawProductName.contains('t-shirt') && !rawProductName.contains('tshirt') && !rawProductName.contains('formal'));
+          return rawProductCat.contains('shirt') && !rawProductCat.contains('tshirt') && !rawProductCat.contains('t-shirt') && !rawProductCat.contains('formal');
         }
         if (targetNormalized == 'tshirt') {
-          return rawProductCat.contains('tshirt') || rawProductCat.contains('t-shirt') ||
-                 rawProductName.contains('tshirt') || rawProductName.contains('t-shirt');
+          return rawProductCat.contains('tshirt') || rawProductCat.contains('t-shirt');
         }
         if (targetNormalized == 'formalshirt') {
-          return (rawProductCat.contains('formal') && rawProductCat.contains('shirt')) ||
-                 (rawProductName.contains('formal') && rawProductName.contains('shirt'));
+          return rawProductCat.contains('formal') && rawProductCat.contains('shirt');
         }
         if (targetNormalized == 'jean') {
-          return rawProductCat.contains('jean') || rawProductName.contains('jean');
+          return rawProductCat.contains('jean');
         }
         if (targetNormalized == 'blazer') {
-          return rawProductCat.contains('blazer') || rawProductName.contains('blazer');
+          return rawProductCat.contains('blazer');
         }
         if (targetNormalized == 'suit') {
-          return rawProductCat.contains('suit') || rawProductName.contains('suit');
+          return rawProductCat.contains('suit');
+        }
+        if (targetNormalized == 'schooluniform') {
+          return rawProductCat.contains('school');
+        }
+        if (targetNormalized == 'collegeuniform') {
+          return rawProductCat.contains('college');
+        }
+        if (targetNormalized == 'wedding') {
+          return rawProductCat.contains('wedding');
         }
         
-        return rawProductCat.contains(rawTargetLower) || rawProductName.contains(rawTargetLower);
+        return rawProductCat.contains(rawTargetLower);
       }).toList();
     }
 
