@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import '../config/api_config.dart';
 
 class Product {
@@ -154,6 +155,20 @@ class Product {
   }
 
   String get formattedPrice => '₹${price.toInt()}';
+
+  String get stockStatusText {
+    if (stock <= 0) return 'Out of Stock';
+    if (stock == 1) return 'Only 1 left';
+    if (stock == 2) return 'Only 2 left';
+    return 'In Stock';
+  }
+
+  Color get stockStatusColor {
+    if (stock <= 0) return const Color(0xFFE53935); // Red
+    if (stock == 1) return const Color(0xFFE53935); // Red
+    if (stock == 2) return const Color(0xFFFF9800); // Orange
+    return const Color(0xFF4CAF50); // Green
+  }
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final String rawFabric = json['fabric'] ?? '';

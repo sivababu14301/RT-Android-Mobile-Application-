@@ -197,15 +197,11 @@ class ProductCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    product.stock <= 0
-                        ? 'Out of Stock'
-                        : product.stock <= 3
-                            ? 'Only ${product.stock} left'
-                            : 'In Stock',
+                    product.stockStatusText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: product.stock <= 3 ? Colors.red : Colors.green,
+                      color: product.stockStatusColor,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),

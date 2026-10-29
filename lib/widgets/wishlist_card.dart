@@ -87,10 +87,11 @@ class WishlistCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        product.stock > 0 ? 'In Stock' : 'Out of Stock',
+                        product.stockStatusText,
                         style: TextStyle(
-                          color: product.stock > 0 ? Colors.green : Colors.red,
+                          color: product.stockStatusColor,
                           fontSize: 12,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],

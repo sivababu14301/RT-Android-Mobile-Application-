@@ -523,17 +523,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       ),
                       const Spacer(),
                       Text(
-                        isOutOfStock
-                            ? 'Out of Stock'
-                            : widget.product.stock <= 3
-                                ? 'Only ${widget.product.stock} left!'
-                                : 'In Stock (${widget.product.stock})',
+                        widget.product.stockStatusText,
                         style: TextStyle(
-                          color: isOutOfStock
-                              ? Colors.red
-                              : widget.product.stock <= 3
-                                  ? Colors.red
-                                  : Colors.green,
+                          color: widget.product.stockStatusColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
