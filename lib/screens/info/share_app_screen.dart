@@ -23,11 +23,11 @@ class _ShareAppScreenState extends State<ShareAppScreen> {
     setState(() {
       _isSharing = true;
       _downloadProgress = 0.0;
-      _statusText = 'Locating installable APK...';
+      _statusText = 'Preparing installed App APK...';
     });
 
     try {
-      final File? apkFile = await ShareAppService.prepareApkFile(
+      final File? apkFile = await ShareAppService.prepareInstalledApk(
         onProgress: (pct) {
           if (mounted) {
             setState(() {
@@ -41,7 +41,7 @@ class _ShareAppScreenState extends State<ShareAppScreen> {
       if (apkFile != null && await apkFile.exists()) {
         if (mounted) {
           setState(() {
-            _statusText = 'Opening native Android Share Sheet...';
+            _statusText = 'Opening Android Share Menu...';
           });
         }
 
@@ -61,7 +61,7 @@ class _ShareAppScreenState extends State<ShareAppScreen> {
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Installable APK has not been generated yet or network is unavailable.'),
+              content: Text('Could not access the installed app APK on this device.'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -75,7 +75,7 @@ class _ShareAppScreenState extends State<ShareAppScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error preparing APK for sharing: $e'),
+            content: Text('Failed to share APK: $e'),
             backgroundColor: AppColors.error,
           ),
         );
