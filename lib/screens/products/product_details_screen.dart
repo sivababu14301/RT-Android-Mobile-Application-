@@ -914,8 +914,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _buildRatingSummary() {
-    final double rating = widget.product.rating;
     final int total = _reviews.length > widget.product.reviewCount ? _reviews.length : widget.product.reviewCount;
+    
+    // Calculate dynamic average rating from real review data
+    double rating = widget.product.rating;
+    if (_reviews.isNotEmpty) {
+      final double sum = _reviews.fold(0.0, (acc, r) {
+        final val = r['rating'];
+        return acc + (val is num ? val.toDouble() : 5.0);
+      });
+      rating = sum / _reviews.length;
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -949,7 +958,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             child: Column(
               children: [5, 4, 3, 2, 1].map((star) {
                 final count = _starDistribution[star.toString()] ?? 0;
-                final pct = total > 0 ? (count / total).clamp(0.0, 1.0) : 0.0;
+                final double pct = total > 0 ? (count / total).clamp(0.0, 1.0) : 0.0;
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2.0),
                   child: Row(
@@ -957,16 +966,30 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       Text('$star★', style: const TextStyle(color: AppColors.grey, fontSize: 11)),
                       const SizedBox(width: 6),
                       Expanded(
-                        child: LinearProgressIndicator(
-                          value: pct,
-                          backgroundColor: Colors.white10,
-                          color: AppColors.gold,
-                          minHeight: 6,
-                          borderRadius: BorderRadius.circular(3),
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0.0, end: pct),
+                          duration: const Duration(milliseconds: 600),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, animValue, child) {
+                            return LinearProgressIndicator(
+                              value: animValue,
+                              backgroundColor: const Color(0xFF292929),
+                              color: AppColors.gold,
+                              minHeight: 7,
+                              borderRadius: BorderRadius.circular(4),
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text('$count', style: const TextStyle(color: AppColors.grey, fontSize: 10)),
+                      SizedBox(
+                        width: 16,
+                        child: Text(
+                          '$count',
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(color: AppColors.grey, fontSize: 10),
+                        ),
+                      ),
                     ],
                   ),
                 );
