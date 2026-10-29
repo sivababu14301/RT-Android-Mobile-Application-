@@ -83,8 +83,9 @@ class ProductService {
         data: formData,
         options: Options(
           headers: {'Authorization': 'Bearer $token'},
-          sendTimeout: const Duration(seconds: 60),
-          receiveTimeout: const Duration(seconds: 60),
+          connectTimeout: const Duration(seconds: 30),
+          sendTimeout: const Duration(seconds: 120),
+          receiveTimeout: const Duration(seconds: 120),
         ),
       );
 
@@ -100,8 +101,14 @@ class ProductService {
       }
     } catch (e) {
       debugPrint("❌ UPLOAD EXCEPTION: $e");
-      if (e is DioException && e.response != null) {
-        throw _handleError(e.response!);
+      if (e is DioException) {
+        if (e.type == DioExceptionType.sendTimeout || e.type == DioExceptionType.receiveTimeout) {
+          throw 'Image upload timed out. Please try again with smaller images or check your network.';
+        } else if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.connectionError) {
+          throw 'Network error during image upload. Please check your internet connection.';
+        } else if (e.response != null) {
+          throw _handleError(e.response!);
+        }
       }
       rethrow;
     }

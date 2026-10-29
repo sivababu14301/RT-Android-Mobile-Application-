@@ -332,7 +332,11 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 
   Future<void> _pickImages() async {
     try {
-      final List<XFile> images = await _picker.pickMultiImage();
+      final List<XFile> images = await _picker.pickMultiImage(
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 82,
+      );
       if (images.isNotEmpty) {
         setState(() {
           _selectedImageFiles.addAll(images.map((xfile) => File(xfile.path)));
@@ -341,7 +345,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     } catch (e) {
       debugPrint("❌ PICK MULTI-IMAGES FAILED, RETRYING SINGLE PICKER: $e");
       try {
-        final XFile? singleImage = await _picker.pickImage(source: ImageSource.gallery);
+        final XFile? singleImage = await _picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1200,
+          maxHeight: 1200,
+          imageQuality: 82,
+        );
         if (singleImage != null) {
           setState(() {
             _selectedImageFiles.add(File(singleImage.path));
