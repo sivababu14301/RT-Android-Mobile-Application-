@@ -9,6 +9,7 @@ import '../../providers/cart_provider.dart';
 import '../../providers/wishlist_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/measurement_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../services/product_service.dart';
 import '../../widgets/product_image_slider.dart';
 import '../../widgets/product_card.dart';
@@ -104,15 +105,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   void _fetchRelatedProducts() async {
     try {
       final service = ProductService();
-      final products = await service.getProducts(category: widget.product.category, limit: 10);
+      final products = await service.getProducts(category: 'All', limit: 100);
       
-      var filtered = products.where((p) => p.id != widget.product.id).toList();
+      final currentCategoryNorm = ProductProvider.normalizeCategory(widget.product.category);
+
+      var filtered = products
+          .where((p) => p.id != widget.product.id)
+          .where((p) => ProductProvider.normalizeCategory(p.category) == currentCategoryNorm)
+          .toList();
+
       if (filtered.isEmpty) {
-        final allProducts = await service.getProducts(limit: 100);
-        filtered = allProducts
-            .where((p) => p.id != widget.product.id)
-            .where((p) => p.category.trim().toLowerCase() == widget.product.category.trim().toLowerCase())
-            .toList();
+        filtered = products.where((p) => p.id != widget.product.id).toList();
       }
 
       if (mounted) {
@@ -1181,23 +1184,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
         else if (_relatedProducts.isEmpty)
           const Text('No related products found.', style: TextStyle(color: AppColors.grey))
         else
-          SizedBox(
-            height: 250,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: _relatedProducts.length,
-              itemBuilder: (context, index) {
-                final prod = _relatedProducts[index];
-                return SizedBox(
-                  width: 170,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 12.0),
-                    child: ProductCard(product: prod),
-                  ),
-                );
-              },
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 14,
+              childAspectRatio: 0.68,
             ),
+            itemCount: _relatedProducts.length,
+            itemBuilder: (context, index) {
+              return ProductCard(product: _relatedProducts[index]);
+            },
           ),
       ],
     );
