@@ -7,7 +7,9 @@ const {
   getMyOrders,
   getOrders,
   updateOrderStatus,
-  cancelOrder,
+  requestOrderCancellation,
+  approveOrderCancellation,
+  rejectOrderCancellation,
 } = require('../controllers/orderController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -23,6 +25,11 @@ router.route('/:id/pay').put(protect, updateOrderToPaid);
 
 router.route('/:id/status').put(protect, admin, updateOrderStatus);
 
-router.route('/:id/cancel').put(protect, cancelOrder);
+// Customer Cancellation Request
+router.route('/:id/cancel-request').put(protect, requestOrderCancellation);
+
+// Admin Cancellation Approval & Rejection
+router.route('/:id/approve-cancellation').put(protect, admin, approveOrderCancellation);
+router.route('/:id/reject-cancellation').put(protect, admin, rejectOrderCancellation);
 
 module.exports = router;

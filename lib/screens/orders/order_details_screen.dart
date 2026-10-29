@@ -28,26 +28,26 @@ class OrderDetailsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('NO, KEEP ORDER', style: TextStyle(color: AppColors.grey)),
+            child: const Text('KEEP ORDER', style: TextStyle(color: AppColors.grey)),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
               final token = context.read<UserProvider>().user?.token;
               if (token != null) {
-                final result = await context.read<OrderProvider>().cancelOrder(displayOrder.id, token);
+                final result = await context.read<OrderProvider>().requestOrderCancellation(displayOrder.id, token);
                 if (context.mounted) {
                   if (result['success'] == true) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(result['message'] ?? 'Order Cancelled Successfully'),
-                        backgroundColor: Colors.green,
+                        content: Text(result['message'] ?? 'Your cancellation request has been sent to the admin for approval.'),
+                        backgroundColor: AppColors.gold,
                       ),
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(result['message'] ?? 'This order can no longer be cancelled because processing has started.'),
+                        content: Text(result['message'] ?? 'Order cancellation is not allowed as order processing has already started.'),
                         backgroundColor: AppColors.error,
                       ),
                     );
@@ -56,7 +56,7 @@ class OrderDetailsScreen extends StatelessWidget {
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('YES, CANCEL ORDER', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text('YES, CANCEL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -90,7 +90,9 @@ class OrderDetailsScreen extends StatelessWidget {
           }
 
           final String cleanStatus = displayOrder.status.trim().toLowerCase();
-          final bool isCancellable = (cleanStatus == 'order placed' || cleanStatus == 'pending') && !displayOrder.isDelivered;
+          final bool isPending = cleanStatus == 'pending' || cleanStatus == 'order placed';
+          final bool isCancellationRequested = cleanStatus == 'cancellation requested';
+          final bool isCancelled = cleanStatus == 'cancelled';
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -118,9 +120,61 @@ class OrderDetailsScreen extends StatelessWidget {
                   ],
                 ),
                 const Divider(color: Colors.white12, height: 40),
+
+                // Pending Cancellation Info Card
+                if (isCancellationRequested) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: AppColors.gold, width: 1.2),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.hourglass_top, color: AppColors.gold, size: 24),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Your cancellation request has been sent to the admin for approval.',
+                            style: TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                // Rejection Reason Info Card
+                if (displayOrder.cancellationRejectionReason.isNotEmpty && isPending) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.red, width: 1.2),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.red, size: 24),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Cancellation Request Rejected: ${displayOrder.cancellationRejectionReason}',
+                            style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
                 
                 // Track Order Button
-                if (displayOrder.status != 'Cancelled')
+                if (!isCancelled)
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -140,7 +194,7 @@ class OrderDetailsScreen extends StatelessWidget {
                       label: const Text('TRACK ORDER PROGRESS', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
                     ),
                   ),
-                if (displayOrder.status != 'Cancelled') const SizedBox(height: 16),
+                if (!isCancelled) const SizedBox(height: 16),
 
                 // Download Tax Invoice PDF Button
                 SizedBox(
@@ -290,18 +344,19 @@ class OrderDetailsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 40),
 
-                // Show Cancel Order button ONLY when order is still in 'Order Placed' or 'Pending' status
-                if (isCancellable)
+                // Show Cancel Order button ONLY when order is strictly in "Pending" / "Order Placed" status
+                if (isPending)
                   SizedBox(
                     width: double.infinity,
                     height: 55,
-                    child: OutlinedButton(
+                    child: OutlinedButton.icon(
                       onPressed: () => _showCancelConfirmation(context, displayOrder),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Colors.red, width: 1.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                       ),
-                      child: const Text('CANCEL ORDER', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                      label: const Text('CANCEL ORDER', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, letterSpacing: 1)),
                     ),
                   ),
                 const SizedBox(height: 20),

@@ -86,8 +86,35 @@ const orderSchema = new mongoose.Schema({
   status: {
     type: String,
     required: true,
-    enum: ['Order Placed', 'Pending', 'Order Confirmed', 'Confirmed', 'Stitching', 'Ready', 'Out for Delivery', 'Delivered', 'Cancelled'],
-    default: 'Order Placed'
+    enum: [
+      'Order Placed',
+      'Pending',
+      'Cancellation Requested',
+      'Order Confirmed',
+      'Confirmed',
+      'Processing',
+      'Stitching',
+      'Ready',
+      'Out for Delivery',
+      'Delivered',
+      'Cancelled'
+    ],
+    default: 'Pending'
+  },
+  cancellationReason: {
+    type: String,
+    default: ''
+  },
+  cancellationRejectionReason: {
+    type: String,
+    default: ''
+  },
+  cancellationRequestedAt: {
+    type: Date
+  },
+  isStockRestored: {
+    type: Boolean,
+    default: false
   },
   statusHistory: [
     {

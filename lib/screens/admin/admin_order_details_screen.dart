@@ -42,8 +42,79 @@ class _AdminOrderDetailsScreenState extends State<AdminOrderDetailsScreen> {
     }
   }
 
+  void _showRejectDialog(BuildContext parentContext, String orderId, String token) {
+    final reasonController = TextEditingController(text: 'Order processing has already started.');
+
+    showDialog(
+      context: parentContext,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppColors.goldBorder, width: 0.5),
+          ),
+          title: const Text('Reject Cancellation Request', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Provide a reason for rejecting the customer cancellation request:', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                maxLines: 2,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Rejection Reason',
+                  labelStyle: const TextStyle(color: AppColors.gold),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Colors.white24),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.gold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('CANCEL', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                final result = await parentContext.read<OrderProvider>().rejectOrderCancellation(
+                  orderId,
+                  token,
+                  reason: reasonController.text.trim(),
+                );
+                if (parentContext.mounted) {
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                    SnackBar(
+                      content: Text(result['message'] ?? 'Cancellation request rejected.'),
+                      backgroundColor: result['success'] == true ? Colors.orange : Colors.red,
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('REJECT REQUEST', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final token = context.watch<AdminProvider>().admin?.token;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -63,6 +134,8 @@ class _AdminOrderDetailsScreenState extends State<AdminOrderDetailsScreen> {
           } catch (e) {
             return const Center(child: Text('Order not found', style: TextStyle(color: Colors.white)));
           }
+
+          final bool isCancellationRequested = order.status == 'Cancellation Requested';
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -85,6 +158,78 @@ class _AdminOrderDetailsScreenState extends State<AdminOrderDetailsScreen> {
                   ],
                 ),
                 const Divider(color: Colors.white12, height: 40),
+
+                // CANCELLATION REQUEST ACTION SECTION
+                if (isCancellationRequested) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.gold, width: 1.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: AppColors.gold, size: 24),
+                            SizedBox(width: 8),
+                            Text(
+                              'CANCELLATION REQUESTED',
+                              style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Reason: ${order.cancellationReason.isNotEmpty ? order.cancellationReason : "Customer requested cancellation."}',
+                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: token == null ? null : () async {
+                                  final result = await context.read<OrderProvider>().approveOrderCancellation(order.id, token);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(result['message'] ?? 'Cancellation Approved.'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                child: const Text('APPROVE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: token == null ? null : () => _showRejectDialog(context, order.id, token),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.red, width: 1.5),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                child: const Text('REJECT', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
                 
                 _buildSectionTitle('Customer Information'),
                 _buildInfoCard([
@@ -159,7 +304,7 @@ class _AdminOrderDetailsScreenState extends State<AdminOrderDetailsScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: order.status == 'Cancelled'
+                    onPressed: (order.status == 'Cancelled' || isCancellationRequested)
                         ? null
                         : () async {
                             final String? newStatus = await Navigator.push(
@@ -168,25 +313,34 @@ class _AdminOrderDetailsScreenState extends State<AdminOrderDetailsScreen> {
                             );
                             
                             if (newStatus != null && context.mounted) {
-                              final token = context.read<AdminProvider>().admin?.token;
                               if (token != null) {
-                                final success = await context.read<OrderProvider>().updateStatus(order.id, newStatus, token);
-                                if (success && context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Order status updated to $newStatus'), backgroundColor: Colors.green),
-                                  );
+                                final result = await context.read<OrderProvider>().updateStatus(order.id, newStatus, token);
+                                if (context.mounted) {
+                                  if (result['success'] == true) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Order status updated to $newStatus'), backgroundColor: Colors.green),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(result['message'] ?? 'Failed to update status'), backgroundColor: Colors.red),
+                                    );
+                                  }
                                 }
                               }
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: order.status == 'Cancelled' ? AppColors.card : Colors.blue,
-                      foregroundColor: order.status == 'Cancelled' ? AppColors.grey : Colors.white,
+                      backgroundColor: (order.status == 'Cancelled' || isCancellationRequested) ? AppColors.card : Colors.blue,
+                      foregroundColor: (order.status == 'Cancelled' || isCancellationRequested) ? AppColors.grey : Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 15),
                     ),
                     child: Text(
-                      order.status == 'Cancelled' ? 'ORDER CANCELLED (CANNOT UPDATE)' : 'UPDATE ORDER STATUS',
+                      order.status == 'Cancelled' 
+                          ? 'ORDER CANCELLED (CANNOT UPDATE)' 
+                          : isCancellationRequested 
+                              ? 'CANCELLATION REQUEST PENDING (RESOLVE FIRST)' 
+                              : 'UPDATE ORDER STATUS',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),

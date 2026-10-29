@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../config/api_config.dart';
 
+/// Service for managing customer and admin order operations
 class OrderService {
   static String get _baseUrl => '${ApiConfig.baseUrl}orders/';
 
@@ -70,9 +71,11 @@ class OrderService {
     }
   }
 
-  Future<Response> cancelOrder(String id) async {
+  Future<Response> cancelOrder(String id, [String? reason]) async {
     try {
-      final response = await _dio.put('$id/cancel');
+      final response = await _dio.put('$id/cancel-request', data: {
+        'reason': reason ?? 'Customer requested cancellation'
+      });
       if (response.statusCode != 200) throw _handleError(response);
       return response;
     } catch (e) {
@@ -81,6 +84,28 @@ class OrderService {
   }
 
   // Admin APIs
+  Future<Response> approveOrderCancellation(String id) async {
+    try {
+      final response = await _dio.put('$id/approve-cancellation');
+      if (response.statusCode != 200) throw _handleError(response);
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Response> rejectOrderCancellation(String id, [String? reason]) async {
+    try {
+      final response = await _dio.put('$id/reject-cancellation', data: {
+        'reason': reason ?? 'Processing has started'
+      });
+      if (response.statusCode != 200) throw _handleError(response);
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<Response> getAllOrders() async {
     try {
       final response = await _dio.get('');

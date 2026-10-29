@@ -15,6 +15,8 @@ class OrderModel {
   final bool isDelivered;
   final DateTime? deliveredAt;
   final String status;
+  final String cancellationReason;
+  final String cancellationRejectionReason;
   final DateTime createdAt;
   final List<StatusHistoryItem> statusHistory;
 
@@ -32,6 +34,8 @@ class OrderModel {
     required this.isDelivered,
     this.deliveredAt,
     required this.status,
+    this.cancellationReason = '',
+    this.cancellationRejectionReason = '',
     required this.createdAt,
     this.statusHistory = const [],
   });
@@ -60,7 +64,9 @@ class OrderModel {
       deliveredAt: json['deliveredAt'] != null ? DateTime.tryParse(json['deliveredAt'].toString()) : null,
       status: (json['status'] != null && json['status'].toString().trim().isNotEmpty)
           ? json['status'].toString().trim()
-          : 'Order Placed',
+          : 'Pending',
+      cancellationReason: json['cancellationReason'] ?? '',
+      cancellationRejectionReason: json['cancellationRejectionReason'] ?? '',
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now() : DateTime.now(),
       statusHistory: json['statusHistory'] != null
           ? (json['statusHistory'] as List)
