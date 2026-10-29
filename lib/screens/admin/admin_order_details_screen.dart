@@ -93,7 +93,7 @@ class _AdminOrderDetailsScreenState extends State<AdminOrderDetailsScreen> {
                   token,
                   reason: reasonController.text.trim(),
                 );
-                if (parentContext.mounted) {
+                if (mounted) {
                   ScaffoldMessenger.of(parentContext).showSnackBar(
                     SnackBar(
                       content: Text(result['message'] ?? 'Cancellation request rejected.'),
@@ -194,7 +194,7 @@ class _AdminOrderDetailsScreenState extends State<AdminOrderDetailsScreen> {
                               child: ElevatedButton(
                                 onPressed: token == null ? null : () async {
                                   final result = await context.read<OrderProvider>().approveOrderCancellation(order.id, token);
-                                  if (context.mounted) {
+                                  if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(result['message'] ?? 'Cancellation Approved.'),
@@ -312,10 +312,10 @@ class _AdminOrderDetailsScreenState extends State<AdminOrderDetailsScreen> {
                               MaterialPageRoute(builder: (context) => UpdateOrderStatusScreen(currentStatus: order.status)),
                             );
                             
-                            if (newStatus != null && context.mounted) {
+                            if (newStatus != null && mounted) {
                               if (token != null) {
                                 final result = await context.read<OrderProvider>().updateStatus(order.id, newStatus, token);
-                                if (context.mounted) {
+                                if (mounted) {
                                   if (result['success'] == true) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(content: Text('Order status updated to $newStatus'), backgroundColor: Colors.green),

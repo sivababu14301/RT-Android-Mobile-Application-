@@ -61,8 +61,8 @@ class MeasurementProvider with ChangeNotifier {
         response = await service.createMeasurement(measurement);
       }
 
-      print("SAVE STATUS: ${response.statusCode}");
-      print("SAVE RESPONSE: ${response.data}");
+      debugPrint("SAVE STATUS: ${response.statusCode}");
+      debugPrint("SAVE RESPONSE: ${response.data}");
 
       if ((response.statusCode == 201 || response.statusCode == 200) && response.data['success'] == true) {
         // Success means MongoDB save succeeded

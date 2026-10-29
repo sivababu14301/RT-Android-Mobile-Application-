@@ -9,11 +9,16 @@ import '../../services/invoice_service.dart';
 import '../../widgets/order_status_chip.dart';
 import '../tracking/order_tracking_screen.dart';
 
-class OrderDetailsScreen extends StatelessWidget {
+class OrderDetailsScreen extends StatefulWidget {
   final OrderModel order;
 
   const OrderDetailsScreen({super.key, required this.order});
 
+  @override
+  State<OrderDetailsScreen> createState() => _OrderDetailsScreenState();
+}
+
+class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   void _showCancelConfirmation(BuildContext context, OrderModel displayOrder) {
     showDialog(
       context: context,
@@ -35,8 +40,8 @@ class OrderDetailsScreen extends StatelessWidget {
               Navigator.pop(dialogContext);
               final token = context.read<UserProvider>().user?.token;
               if (token != null) {
-                final result = await context.read<OrderProvider>().requestOrderCancellation(displayOrder.id, token);
-                if (context.mounted) {
+                final result = await context.read<OrderProvider>().cancelOrder(displayOrder.id, token);
+                if (mounted) {
                   if (result['success'] == true) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -84,9 +89,9 @@ class OrderDetailsScreen extends StatelessWidget {
           // Find the latest version of this order from the provider
           OrderModel displayOrder;
           try {
-            displayOrder = provider.orders.firstWhere((o) => o.id == order.id);
+            displayOrder = provider.orders.firstWhere((o) => o.id == widget.order.id);
           } catch (e) {
-            displayOrder = order; // Fallback
+            displayOrder = widget.order; // Fallback
           }
 
           final String cleanStatus = displayOrder.status.trim().toLowerCase();
@@ -211,7 +216,7 @@ class OrderDetailsScreen extends StatelessWidget {
                           ),
                         );
                         final pdfFile = await InvoiceService.generateInvoicePdf(displayOrder);
-                        if (context.mounted) {
+                        if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Invoice saved: ${pdfFile.path.split('/').last}'),
@@ -225,7 +230,7 @@ class OrderDetailsScreen extends StatelessWidget {
                           );
                         }
                       } catch (e) {
-                        if (context.mounted) {
+                        if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Failed to generate invoice: $e'), backgroundColor: AppColors.error),
                           );

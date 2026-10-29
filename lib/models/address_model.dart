@@ -58,7 +58,7 @@ class AddressModel {
       street,
       area,
       city,
-      '${state}${pincode.isNotEmpty ? " - $pincode" : ""}'
+      '$state${pincode.isNotEmpty ? " - $pincode" : ""}'
     ].where((s) => s.trim().isNotEmpty && s.trim() != '.').toList();
     
     return parts.join(', ');

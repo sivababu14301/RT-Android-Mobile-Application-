@@ -83,6 +83,10 @@ class OrderService {
     }
   }
 
+  Future<Response> requestOrderCancellation(String id, {String? reason}) async {
+    return await cancelOrder(id, reason);
+  }
+
   // Admin APIs
   Future<Response> approveOrderCancellation(String id) async {
     try {
