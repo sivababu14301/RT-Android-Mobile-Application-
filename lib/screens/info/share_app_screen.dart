@@ -1,10 +1,87 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../config/app_colors.dart';
+import '../../services/share_app_service.dart';
 import '../../widgets/logo_widget.dart';
 import '../../widgets/custom_button.dart';
 
-class ShareAppScreen extends StatelessWidget {
+class ShareAppScreen extends StatefulWidget {
   const ShareAppScreen({super.key});
+
+  @override
+  State<ShareAppScreen> createState() => _ShareAppScreenState();
+}
+
+class _ShareAppScreenState extends State<ShareAppScreen> {
+  bool _isSharing = false;
+  double _downloadProgress = 0.0;
+  String _statusText = '';
+
+  Future<void> _handleShareNow() async {
+    if (_isSharing) return;
+
+    setState(() {
+      _isSharing = true;
+      _downloadProgress = 0.0;
+      _statusText = 'Locating installable APK...';
+    });
+
+    try {
+      final File? apkFile = await ShareAppService.prepareApkFile(
+        onProgress: (pct) {
+          if (mounted) {
+            setState(() {
+              _downloadProgress = pct;
+              _statusText = 'Preparing App APK (${(pct * 100).toInt()}%)...';
+            });
+          }
+        },
+      );
+
+      if (apkFile != null && await apkFile.exists()) {
+        if (mounted) {
+          setState(() {
+            _statusText = 'Opening native Android Share Sheet...';
+          });
+        }
+
+        await ShareAppService.shareApk(apkFile);
+
+        if (mounted) {
+          setState(() {
+            _isSharing = false;
+            _statusText = '';
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isSharing = false;
+            _statusText = '';
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Installable APK has not been generated yet or network is unavailable.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSharing = false;
+          _statusText = '';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error preparing APK for sharing: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,16 +116,34 @@ class ShareAppScreen extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.white, fontSize: 16, height: 1.5),
             ),
-            const SizedBox(height: 48),
-            CustomButton(
-              text: 'SHARE NOW',
-              onPressed: () {
-                // In real app use: Share.share('Download Raymaans Tailors app for the perfect fit!');
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Opening Share Dialog...')),
-                );
-              },
-            ),
+            const SizedBox(height: 36),
+
+            if (_isSharing) ...[
+              if (_downloadProgress > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: LinearProgressIndicator(
+                    value: _downloadProgress,
+                    backgroundColor: Colors.white10,
+                    color: AppColors.gold,
+                    minHeight: 6,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Text(
+                _statusText,
+                style: const TextStyle(color: AppColors.gold, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            _isSharing
+                ? const CircularProgressIndicator(color: AppColors.gold)
+                : CustomButton(
+                    text: 'SHARE NOW',
+                    onPressed: _handleShareNow,
+                  ),
             const SizedBox(height: 40),
           ],
         ),
