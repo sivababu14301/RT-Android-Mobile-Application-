@@ -368,37 +368,159 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     }
   }
 
-  void _showFullImageDialog(BuildContext context, String imageUrl) {
+  void _showReviewGalleryDialog(BuildContext context, List<dynamic> images, int initialIndex) {
+    if (images.isEmpty) return;
+
+    final PageController pageController = PageController(initialPage: initialIndex);
+
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.black,
-        insetPadding: const EdgeInsets.all(12),
-        child: Stack(
-          alignment: Alignment.topRight,
-          children: [
-            Center(
-              child: InteractiveViewer(
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => const Icon(
-                    Icons.broken_image_outlined,
-                    color: AppColors.gold,
-                    size: 48,
+      builder: (dialogContext) {
+        int currentIndex = initialIndex;
+
+        return StatefulBuilder(
+          builder: (context, setGalleryState) {
+            return Dialog(
+              backgroundColor: Colors.black,
+              insetPadding: EdgeInsets.zero,
+              child: Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  PageView.builder(
+                    controller: pageController,
+                    itemCount: images.length,
+                    onPageChanged: (idx) {
+                      setGalleryState(() {
+                        currentIndex = idx;
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      final rawImg = images[index].toString().trim();
+                      
+                      if (rawImg.startsWith('data:image/')) {
+                        try {
+                          final base64Str = rawImg.split(',').last.trim();
+                          final bytes = base64Decode(base64Str);
+                          return InteractiveViewer(
+                            minScale: 0.5,
+                            maxScale: 4.0,
+                            child: Image.memory(
+                              bytes,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) => _buildGalleryErrorWidget(context, () {
+                                setGalleryState(() {});
+                              }),
+                            ),
+                          );
+                        } catch (_) {
+                          return _buildGalleryErrorWidget(context, () {
+                            setGalleryState(() {});
+                          });
+                        }
+                      }
+
+                      final formattedUrl = Product.formatImageUrl(rawImg);
+
+                      return InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 4.0,
+                        child: Image.network(
+                          formattedUrl,
+                          fit: BoxFit.contain,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                    : null,
+                                color: AppColors.gold,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildGalleryErrorWidget(context, () {
+                              setGalleryState(() {});
+                            });
+                          },
+                        ),
+                      );
+                    },
                   ),
-                ),
+
+                  if (images.length > 1)
+                    Positioned(
+                      top: 40,
+                      left: 20,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: AppColors.gold.withValues(alpha: 0.5)),
+                        ),
+                        child: Text(
+                          '${currentIndex + 1} / ${images.length}',
+                          style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                    ),
+
+                  Positioned(
+                    top: 35,
+                    right: 20,
+                    child: CircleAvatar(
+                      backgroundColor: Colors.black87,
+                      radius: 20,
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                        onPressed: () => Navigator.pop(dialogContext),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildGalleryErrorWidget(BuildContext context, VoidCallback onRetry) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.gold.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.broken_image_outlined, color: AppColors.gold, size: 48),
             ),
-            Positioned(
-              top: 10,
-              right: 10,
-              child: CircleAvatar(
-                backgroundColor: Colors.black54,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
+            const SizedBox(height: 16),
+            const Text(
+              'Unable to load photo',
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Please check your internet connection and try again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.grey, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, color: AppColors.gold, size: 18),
+              label: const Text('RETRY', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.gold),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ],
@@ -1160,7 +1282,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 final rawImg = images[idx].toString();
                 final fullImgUrl = Product.formatImageUrl(rawImg);
                 return GestureDetector(
-                  onTap: () => _showFullImageDialog(context, fullImgUrl),
+                  onTap: () => _showReviewGalleryDialog(context, images, idx),
                   child: Container(
                     margin: const EdgeInsets.only(right: 8),
                     width: 70,
