@@ -261,7 +261,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
     
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final productProvider = context.read<ProductProvider>();
-      productProvider.setCategory(_selectedCategory);
+      debugPrint("👉 [ProductListScreen initState] Selected Category: '$_selectedCategory'");
       _scrollToSelectedCategory();
       productProvider.fetchProducts(
         category: _selectedCategory,

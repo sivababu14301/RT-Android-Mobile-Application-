@@ -170,7 +170,11 @@ class ProductProvider with ChangeNotifier {
 
   Future<void> fetchProducts({String? category, String? search}) async {
     _isLoading = true;
-    if (category != null) _selectedCategory = category;
+    if (category != null) {
+      _selectedCategory = category;
+      _selectedOfferId = null;
+      _selectedOfferProductIds = null;
+    }
     if (search != null) _searchQuery = search;
     
     notifyListeners();
@@ -179,7 +183,7 @@ class ProductProvider with ChangeNotifier {
           ? null
           : _selectedCategory;
 
-      debugPrint("🔍 ProductProvider: Requesting API products for category: '$apiCategory'");
+      debugPrint("🔍 [ProductProvider] Requesting API for category: '$apiCategory', search: '$_searchQuery'");
 
       final products = await _productService.getProducts(
         category: apiCategory, 
@@ -190,9 +194,9 @@ class ProductProvider with ChangeNotifier {
       _allProducts = products;
       _applyLocalFilter();
 
-      debugPrint("✅ ProductProvider: Retrieved ${products.length} API products for '$_selectedCategory'. Filtered result count: ${_filteredProducts.length}");
+      debugPrint("✅ [ProductProvider] Category: '$_selectedCategory' -> API returned ${products.length} products. Filtered count: ${_filteredProducts.length}");
     } catch (e) {
-      debugPrint('❌ ProductProvider Error: $e');
+      debugPrint('❌ [ProductProvider Error]: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
