@@ -102,7 +102,34 @@ const getProducts = async (req, res) => {
       ];
     }
 
-    if (category && category !== 'All') query.category = category;
+    if (category && category !== 'All') {
+      const catClean = category.trim().toLowerCase();
+
+      if (catClean === 'pants' || catClean === 'pant' || catClean === 'trousers' || catClean === 'trouser') {
+        query.category = { $regex: '^(pants?|trousers?|pants & trousers|trouser)$', $options: 'i' };
+      } else if (catClean === 't-shirts' || catClean === 'tshirt' || catClean === 't-shirt' || catClean === 'tshirts') {
+        query.category = { $regex: '^(t-?shirts?)$', $options: 'i' };
+      } else if (catClean === 'formal shirts' || catClean === 'formal shirt') {
+        query.category = { $regex: '^(formal shirts?)$', $options: 'i' };
+      } else if (catClean === 'shirts' || catClean === 'shirt') {
+        query.category = { $regex: '^(shirts?)$', $options: 'i' };
+      } else if (catClean === 'jeans' || catClean === 'jean') {
+        query.category = { $regex: '^(jeans?)$', $options: 'i' };
+      } else if (catClean === 'suits' || catClean === 'suit') {
+        query.category = { $regex: '^(suits?)$', $options: 'i' };
+      } else if (catClean === 'blazers' || catClean === 'blazer') {
+        query.category = { $regex: '^(blazers?)$', $options: 'i' };
+      } else if (catClean === 'school uniforms' || catClean === 'school uniform') {
+        query.category = { $regex: '^(school uniforms?)$', $options: 'i' };
+      } else if (catClean === 'college uniforms' || catClean === 'college uniform') {
+        query.category = { $regex: '^(college uniforms?)$', $options: 'i' };
+      } else if (catClean === 'wedding wear' || catClean === 'wedding') {
+        query.category = { $regex: '^(wedding wear|wedding)$', $options: 'i' };
+      } else {
+        const escaped = category.trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+        query.category = { $regex: `^${escaped}$`, $options: 'i' };
+      }
+    }
     if (fabric) query.fabric = fabric;
     if (size) query.sizes = size;
     if (color) query.colors = color;

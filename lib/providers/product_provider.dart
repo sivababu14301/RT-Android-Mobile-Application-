@@ -261,7 +261,9 @@ class ProductProvider with ChangeNotifier {
           return rawProductCat.contains('accessor');
         }
         
-        return rawProductCat.contains(rawTargetLower);
+        return rawProductCat == rawTargetLower || 
+               rawProductCat == rawTargetLower.replaceAll('s', '') ||
+               rawProductCat == '${rawTargetLower}s';
       }).toList();
     }
 
