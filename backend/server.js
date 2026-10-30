@@ -101,6 +101,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const fabricRoutes = require('./routes/fabricRoutes');
 const adminFabricRoutes = require('./routes/adminFabricRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const appRatingRoutes = require('./routes/appRatingRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -116,6 +117,7 @@ app.use('/api/banners', bannerRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/app-ratings', appRatingRoutes);
 
 // Admin Routes (Specific sub-routes mounted before general /api/admin)
 app.use('/api/admin/fabrics', adminFabricRoutes);

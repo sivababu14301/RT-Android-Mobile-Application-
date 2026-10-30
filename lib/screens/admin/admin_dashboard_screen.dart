@@ -17,6 +17,7 @@ import 'admin_settings_screen.dart';
 import 'banner_management_screen.dart';
 import 'offers/admin_offer_list_screen.dart';
 import 'profile/admin_profile_screen.dart';
+import 'admin_app_ratings_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -192,6 +193,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     title: 'Notifications & Messages',
                     icon: Icons.message_outlined,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminNotificationCustomerListScreen())),
+                  ),
+                  AdminMenuTile(
+                    title: 'Customer App Ratings',
+                    icon: Icons.rate_review_outlined,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminAppRatingsScreen())),
                   ),
                   AdminMenuTile(
                     title: 'Admin Settings',
