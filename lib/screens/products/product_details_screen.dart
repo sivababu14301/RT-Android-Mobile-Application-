@@ -85,9 +85,30 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       final service = ProductService();
       final data = await service.getProductReviews(widget.product.id);
       if (mounted) {
+        final List<dynamic> fetchedReviews = data['reviews'] ?? [];
+        Map<String, int> distMap = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0};
+
+        final rawDist = data['distribution'] ?? data['starDistribution'];
+        if (rawDist is Map) {
+          rawDist.forEach((key, val) {
+            if (val is num) {
+              distMap[key.toString()] = val.toInt();
+            }
+          });
+        }
+
+        if (fetchedReviews.isNotEmpty) {
+          for (var rev in fetchedReviews) {
+            final rVal = rev['rating'];
+            final int r = (rVal is num) ? rVal.toInt() : 5;
+            final key = r.clamp(1, 5).toString();
+            distMap[key] = (distMap[key] ?? 0) + 1;
+          }
+        }
+
         setState(() {
-          _reviews = data['reviews'] ?? [];
-          _starDistribution = data['starDistribution'] ?? _starDistribution;
+          _reviews = fetchedReviews;
+          _starDistribution = distMap;
           _isReviewsLoading = false;
         });
       }
@@ -1036,7 +1057,28 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _buildRatingSummary() {
-    final int total = _reviews.length > widget.product.reviewCount ? _reviews.length : widget.product.reviewCount;
+    final Map<String, int> dist = {'1': 0, '2': 0, '3': 0, '4': 0, '5': 0};
+    _starDistribution.forEach((k, v) => dist[k] = v);
+
+    if (_reviews.isNotEmpty) {
+      for (var k in ['1', '2', '3', '4', '5']) {
+        dist[k] = 0;
+      }
+      for (var rev in _reviews) {
+        final rVal = rev['rating'];
+        final int r = (rVal is num) ? rVal.toInt() : 5;
+        final key = r.clamp(1, 5).toString();
+        dist[key] = (dist[key] ?? 0) + 1;
+      }
+    }
+
+    int total = _reviews.length;
+    if (total == 0) {
+      total = dist.values.fold(0, (sum, c) => sum + c);
+    }
+    if (total == 0) {
+      total = widget.product.reviewCount;
+    }
     
     // Calculate dynamic average rating from real review data
     double rating = widget.product.rating;
@@ -1079,7 +1121,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           Expanded(
             child: Column(
               children: [5, 4, 3, 2, 1].map((star) {
-                final count = _starDistribution[star.toString()] ?? 0;
+                final count = dist[star.toString()] ?? 0;
                 final double pct = total > 0 ? (count / total).clamp(0.0, 1.0) : 0.0;
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2.0),
