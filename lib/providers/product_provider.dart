@@ -159,12 +159,7 @@ class ProductProvider with ChangeNotifier {
     _selectedOfferProductIds = null;
     _selectedCategory = category;
     _searchQuery = null;
-    if (_allProducts.isEmpty) {
-      fetchProducts(category: category);
-    } else {
-      _applyLocalFilter();
-      notifyListeners();
-    }
+    fetchProducts(category: category);
   }
 
   void setSearchQuery(String? query) {
@@ -180,14 +175,24 @@ class ProductProvider with ChangeNotifier {
     
     notifyListeners();
     try {
-      // Fetch all products to allow fast local filtering across categories
-      _allProducts = await _productService.getProducts(
-        category: 'All', 
-        search: null
+      final String? apiCategory = (_selectedCategory.trim().isEmpty || _selectedCategory.trim().toLowerCase() == 'all')
+          ? null
+          : _selectedCategory;
+
+      debugPrint("🔍 ProductProvider: Requesting API products for category: '$apiCategory'");
+
+      final products = await _productService.getProducts(
+        category: apiCategory, 
+        search: _searchQuery,
+        limit: 100
       );
+
+      _allProducts = products;
       _applyLocalFilter();
+
+      debugPrint("✅ ProductProvider: Retrieved ${products.length} API products for '$_selectedCategory'. Filtered result count: ${_filteredProducts.length}");
     } catch (e) {
-      debugPrint('ProductProvider Error: $e');
+      debugPrint('❌ ProductProvider Error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();

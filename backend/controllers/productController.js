@@ -90,8 +90,10 @@ const addProduct = async (req, res) => {
 // @access  Public
 const getProducts = async (req, res) => {
   try {
-    const { search, category, fabric, minPrice, maxPrice, size, color, sort, page = 1, limit = 10 } = req.query;
+    const { search, category, fabric, minPrice, maxPrice, size, color, sort, page = 1, limit = 100 } = req.query;
     const query = {};
+
+    console.log(`🔍 [GET PRODUCTS API] req.query: category="${category}", search="${search}"`);
 
     if (search) {
       query.$or = [
